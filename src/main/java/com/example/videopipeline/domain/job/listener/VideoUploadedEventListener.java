@@ -1,7 +1,7 @@
 package com.example.videopipeline.domain.job.listener;
 
+import com.example.videopipeline.domain.job.messaging.JobEventPublisher;
 import com.example.videopipeline.domain.job.repository.ProcessingJobRepository;
-import com.example.videopipeline.domain.job.service.JobWorker;
 import com.example.videopipeline.domain.video.event.VideoUploaded;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -12,11 +12,11 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class VideoUploadedEventListener {
 
     private final ProcessingJobRepository jobRepository;
-    private final JobWorker jobWorker;
+    private final JobEventPublisher publisher;
 
     @TransactionalEventListener
     public void handle(VideoUploaded event) {
         jobRepository.findByVideoId(event.videoId())
-                .forEach(jobWorker::execute);
+                .forEach(publisher::publish);
     }
 }

@@ -28,6 +28,12 @@ public class JobService {
         return jobRepository.findByVideoId(videoId);
     }
 
+    @Transactional(readOnly = true)
+    public ProcessingJob getJob(Long jobId) {
+        return jobRepository.findById(jobId)
+                .orElseThrow(() -> new JobNotFoundException(jobId));
+    }
+
     @Transactional
     public void createAllFor(Long videoId) {
         Arrays.stream(JobType.values())

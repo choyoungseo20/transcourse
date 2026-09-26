@@ -29,7 +29,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
 
       # 테스트는 local 프로파일로 실행되므로 그 기본값(root/localroot, minio/localminio)에 맞춘다
-      - name: 테스트 인프라 기동 (MySQL, MinIO)
+      - name: 테스트 인프라 기동 (MySQL, MinIO, Kafka)
         run: |
           cat > .env <<EOF
           MYSQL_DATABASE=videopipeline
@@ -39,7 +39,7 @@ jobs:
           MINIO_ROOT_USER=minio
           MINIO_ROOT_PASSWORD=localminio
           EOF
-          docker compose up -d --wait mysql minio
+          docker compose up -d --wait mysql minio kafka
 
       - name: 빌드 및 테스트
         run: ./gradlew build

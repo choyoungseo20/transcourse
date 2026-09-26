@@ -1,8 +1,8 @@
 package com.example.videopipeline.domain.job.scheduler;
 
 import com.example.videopipeline.domain.job.entity.ProcessingJob;
+import com.example.videopipeline.domain.job.messaging.JobEventPublisher;
 import com.example.videopipeline.domain.job.service.JobService;
-import com.example.videopipeline.domain.job.service.JobWorker;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,17 +16,17 @@ import org.springframework.stereotype.Component;
 public class JobRecoveryPoller {
 
     private final JobService jobService;
-    private final JobWorker jobWorker;
+    private final JobEventPublisher publisher;
     private final Duration runningTimeout;
     private final Duration pendingStaleAfter;
 
     public JobRecoveryPoller(
             JobService jobService,
-            JobWorker jobWorker,
+            JobEventPublisher publisher,
             @Value("${app.recovery.running-timeout}") Duration runningTimeout,
             @Value("${app.recovery.pending-stale-after}") Duration pendingStaleAfter) {
         this.jobService = jobService;
-        this.jobWorker = jobWorker;
+        this.publisher = publisher;
         this.runningTimeout = runningTimeout;
         this.pendingStaleAfter = pendingStaleAfter;
     }
@@ -41,7 +41,7 @@ public class JobRecoveryPoller {
             return;
         }
 
-        log.info("방치된 job 복구: RUNNING 좀비 {}건 실패 처리, {}건 재실행", zombies.size(), targets.size());
-        targets.forEach(jobWorker::execute);
+        log.info("방치된 job 복구: RUNNING 좀비 {}건 실패 처리, {}건 재발행", zombies.size(), targets.size());
+        targets.forEach(publisher::publish);
     }
 }

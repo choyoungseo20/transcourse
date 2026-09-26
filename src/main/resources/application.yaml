@@ -1,12 +1,26 @@
 spring:
   application:
     name: video-processing-pipeline
-  task:
-    execution:
-      pool:
-        core-size: 8
-        max-size: 8
-        queue-capacity: 100
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: video-jobs
+      client-id: ${KAFKA_CLIENT_ID:${HOSTNAME:local}}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      # 인코딩이 수 분 걸리므로 한 건씩 가져와 파티션을 pause한 채 워커에서 처리한다
+      max-poll-records: 1
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        "[group.protocol]": classic
+        "[partition.assignment.strategy]": ${KAFKA_ASSIGNMENT_STRATEGY:org.apache.kafka.clients.consumer.RangeAssignor}
+    listener:
+      ack-mode: manual_immediate
   servlet:
     multipart:
       max-file-size: 1GB
@@ -30,9 +44,14 @@ app:
   ffmpeg:
     ffprobe-path: ffprobe
     ffmpeg-path: ffmpeg
+  kafka:
+    jobs-topic: video.jobs
+    jobs-partitions: 6
+    worker-threads: 6
   recovery:
     poll-interval: 60s
-    pending-stale-after: 60s
+    # 토픽에서 대기하는 시간은 정상이므로, 발행 유실로 볼 만큼 충분히 길어야 한다
+    pending-stale-after: 10m
     running-timeout: 300s
   storage:
     endpoint: ${APP_STORAGE_ENDPOINT:http://localhost:9000}

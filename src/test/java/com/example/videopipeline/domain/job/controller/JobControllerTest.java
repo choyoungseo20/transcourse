@@ -12,8 +12,8 @@ import com.example.videopipeline.domain.job.entity.JobType;
 import com.example.videopipeline.domain.job.entity.ProcessingJob;
 import com.example.videopipeline.domain.job.exception.JobNotFoundException;
 import com.example.videopipeline.domain.job.exception.JobNotRetryableException;
+import com.example.videopipeline.domain.job.messaging.JobEventPublisher;
 import com.example.videopipeline.domain.job.service.JobService;
-import com.example.videopipeline.domain.job.service.JobWorker;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -30,7 +30,7 @@ class JobControllerTest {
     private JobService jobService;
 
     @MockitoBean
-    private JobWorker jobWorker;
+    private JobEventPublisher publisher;
 
     @Test
     void 재시도에_성공하면_200과_공통_성공_코드를_반환한다() throws Exception {
@@ -41,7 +41,7 @@ class JobControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("COMMON200"));
 
-        verify(jobWorker).execute(any(ProcessingJob.class));
+        verify(publisher).publish(any(ProcessingJob.class));
     }
 
     @Test

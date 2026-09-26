@@ -1,5 +1,6 @@
 package com.example.videopipeline.domain.job.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -44,8 +45,9 @@ class JobWorkerTest {
         given(jobService.markStarted(any()))
                 .willThrow(new InvalidJobTransitionException(1L, JobStatus.RUNNING));
 
-        worker.execute(job);
+        JobExecutionResult result = worker.execute(job);
 
+        assertThat(result).isEqualTo(JobExecutionResult.SKIPPED);
         verify(processor, never()).process(anyLong(), any());
         verify(jobService, never()).markFailed(any(), any(), anyInt());
     }
@@ -55,8 +57,9 @@ class JobWorkerTest {
         given(jobService.markStarted(any())).willReturn(1);
         given(videoService.getFilePath(1L)).willReturn(FILE_PATH);
 
-        worker.execute(job);
+        JobExecutionResult result = worker.execute(job);
 
+        assertThat(result).isEqualTo(JobExecutionResult.SUCCEEDED);
         verify(processor).process(1L, FILE_PATH);
         verify(jobService).markSucceeded(job.getId(), 1);
     }
@@ -67,8 +70,9 @@ class JobWorkerTest {
         given(videoService.getFilePath(1L)).willReturn(FILE_PATH);
         willThrow(new IllegalStateException("ffmpeg 실행 실패")).given(processor).process(1L, FILE_PATH);
 
-        worker.execute(job);
+        JobExecutionResult result = worker.execute(job);
 
+        assertThat(result).isEqualTo(JobExecutionResult.FAILED);
         verify(jobService).markFailed(job.getId(), "ffmpeg 실행 실패", 1);
         verify(jobService, never()).markSucceeded(any(), anyInt());
     }
@@ -85,13 +89,13 @@ class JobWorkerTest {
     }
 
     @Test
-    void 만료된_시도의_성공_기록_거부는_밖으로_전파되지_않는다() {
+    void 만료된_시도의_성공_기록_거부는_결과_거부로_반환하고_밖으로_전파되지_않는다() {
         given(jobService.markStarted(any())).willReturn(1);
         given(videoService.getFilePath(1L)).willReturn(FILE_PATH);
         willThrow(new StaleJobAttemptException(1L, 1, 2))
                 .given(jobService).markSucceeded(any(), anyInt());
 
-        assertThatCode(() -> worker.execute(job)).doesNotThrowAnyException();
+        assertThat(worker.execute(job)).isEqualTo(JobExecutionResult.RESULT_REJECTED);
         verify(jobService).markSucceeded(job.getId(), 1);
     }
 

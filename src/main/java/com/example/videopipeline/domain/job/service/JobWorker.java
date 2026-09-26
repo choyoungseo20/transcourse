@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -29,14 +28,13 @@ public class JobWorker {
                 .collect(Collectors.toMap(JobProcessor::supportedType, Function.identity()));
     }
 
-    @Async
-    public void execute(ProcessingJob job) {
+    public JobExecutionResult execute(ProcessingJob job) {
         int attempt;
         try {
             attempt = jobService.markStarted(job.getId());
         } catch (InvalidJobTransitionException e) {
             log.info("실행 가능 상태가 아니라 건너뜀: jobId={}, type={}", job.getId(), job.getType());
-            return;
+            return JobExecutionResult.SKIPPED;
         }
         try {
             String filePath = videoService.getFilePath(job.getVideoId());
@@ -44,17 +42,18 @@ public class JobWorker {
         } catch (Exception e) {
             log.error("job 실행 실패: jobId={}, type={}", job.getId(), job.getType(), e);
             String reason = e.getMessage() != null ? e.getMessage() : e.toString();
-            record(job, () -> jobService.markFailed(job.getId(), reason, attempt));
-            return;
+            return record(job, JobExecutionResult.FAILED, () -> jobService.markFailed(job.getId(), reason, attempt));
         }
-        record(job, () -> jobService.markSucceeded(job.getId(), attempt));
+        return record(job, JobExecutionResult.SUCCEEDED, () -> jobService.markSucceeded(job.getId(), attempt));
     }
 
-    private void record(ProcessingJob job, Runnable recording) {
+    private JobExecutionResult record(ProcessingJob job, JobExecutionResult outcome, Runnable recording) {
         try {
             recording.run();
+            return outcome;
         } catch (StaleJobAttemptException | InvalidJobTransitionException e) {
             log.warn("결과 기록 거부됨: jobId={}, type={}, 사유={}", job.getId(), job.getType(), e.getMessage());
+            return JobExecutionResult.RESULT_REJECTED;
         }
     }
 }

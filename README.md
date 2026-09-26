@@ -64,6 +64,7 @@
 
 * Java 21, Spring Boot 4.1.1
 * Spring Data JPA, MySQL 8.4
+* Spring for Apache Kafka, Kafka 4.0 (KRaft)
 * springdoc-openapi (Swagger UI)
 * Docker, Docker Compose
 
@@ -96,10 +97,10 @@ docker compose down
 
 ### 로컬에서 앱만 실행
 
-MySQL만 Docker로 띄우고 앱은 로컬 `local` 프로파일로 실행합니다.
+MySQL, MinIO, Kafka만 Docker로 띄우고 앱은 로컬 `local` 프로파일로 실행합니다.
 
 ```bash
-docker compose up -d mysql
+docker compose up -d mysql minio kafka
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
