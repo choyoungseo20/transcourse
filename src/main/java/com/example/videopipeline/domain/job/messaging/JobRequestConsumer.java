@@ -4,8 +4,11 @@ import com.example.videopipeline.domain.job.exception.JobNotFoundException;
 import com.example.videopipeline.domain.job.service.JobExecutionResult;
 import com.example.videopipeline.domain.job.service.JobService;
 import com.example.videopipeline.domain.job.service.JobWorker;
+import com.example.videopipeline.domain.job.service.WorkerExecutionRecorder;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerGroupMetadata;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -26,29 +29,37 @@ public class JobRequestConsumer {
 
     private final JobService jobService;
     private final JobWorker jobWorker;
+    private final WorkerExecutionRecorder recorder;
     private final KafkaListenerEndpointRegistry registry;
     private final Executor workerExecutor;
 
     public JobRequestConsumer(
             JobService jobService,
             JobWorker jobWorker,
+            WorkerExecutionRecorder recorder,
             KafkaListenerEndpointRegistry registry,
             @Qualifier("jobWorkerExecutor") Executor workerExecutor) {
         this.jobService = jobService;
         this.jobWorker = jobWorker;
+        this.recorder = recorder;
         this.registry = registry;
         this.workerExecutor = workerExecutor;
     }
 
     @KafkaListener(id = LISTENER_ID, idIsGroup = false, topics = "${app.kafka.jobs-topic}")
-    public void onJobRequested(ConsumerRecord<String, String> record, Acknowledgment ack) {
+    public void onJobRequested(ConsumerRecord<String, String> record, Acknowledgment ack, Consumer<?, ?> consumer) {
         TopicPartition partition = new TopicPartition(record.topic(), record.partition());
+        ConsumerGroupMetadata group = consumer.groupMetadata();
         Long jobId = Long.valueOf(record.value());
+        Long executionId = recorder.received(record, jobId, group.memberId(), group.generationId());
 
         container().pausePartition(partition);
         workerExecutor.execute(() -> {
             try {
-                run(jobId);
+                recorder.finished(executionId, run(jobId));
+            } catch (RuntimeException e) {
+                log.error("job 실행 중 예상 밖 예외: jobId={}", jobId, e);
+                recorder.finished(executionId, JobExecutionResult.FAILED);
             } finally {
                 ack.acknowledge();
                 container().resumePartition(partition);

@@ -4,7 +4,10 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.config.ContainerCustomizer;
 import org.springframework.kafka.config.TopicBuilder;
+import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
+import org.springframework.kafka.listener.ConsumerAwareRebalanceListener;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 @Configuration
@@ -26,4 +29,9 @@ public class KafkaConfig {
         return executor;
     }
 
+    @Bean
+    public ContainerCustomizer<Object, Object, ConcurrentMessageListenerContainer<Object, Object>> rebalanceListenerCustomizer(
+            ConsumerAwareRebalanceListener rebalanceListener) {
+        return container -> container.getContainerProperties().setConsumerRebalanceListener(rebalanceListener);
+    }
 }

@@ -95,6 +95,21 @@ docker compose up --build -d
 docker compose down
 ```
 
+### 컨슈머 증설 실험
+
+`worker` 서비스는 포트를 열지 않는 컨슈머 인스턴스입니다. 인코딩 중에 대수를 늘리면 리밸런싱이 일어나고, 그 결과는 `rebalance_event`·`worker_execution` 테이블에 남습니다.
+
+```bash
+docker compose --profile scale up -d --scale worker=3
+docker compose --profile scale up -d --scale worker=4 --no-recreate worker   # 인코딩 중 1대 증설
+```
+
+할당 전략은 `KAFKA_ASSIGNMENT_STRATEGY`로 바꿉니다 (기본 `RangeAssignor`).
+
+```bash
+KAFKA_ASSIGNMENT_STRATEGY=org.apache.kafka.clients.consumer.CooperativeStickyAssignor docker compose --profile scale up -d --scale worker=3
+```
+
 ### 로컬에서 앱만 실행
 
 MySQL, MinIO, Kafka만 Docker로 띄우고 앱은 로컬 `local` 프로파일로 실행합니다.
