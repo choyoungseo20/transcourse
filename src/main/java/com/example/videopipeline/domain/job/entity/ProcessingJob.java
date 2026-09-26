@@ -67,8 +67,10 @@ public class ProcessingJob extends BaseEntity {
         return new ProcessingJob(videoId, type);
     }
 
+    // RUNNING에서의 start는 at-least-once 재전달을 새 시도로 선점하는 경우다.
+    // 먼저 돌던 시도는 중단되지 않고 끝까지 실행되며, 그 결과는 시도 번호 불일치로 거부된다.
     public void start() {
-        ensureStatusIn(JobStatus.PENDING, JobStatus.FAILED);
+        ensureStatusIn(JobStatus.PENDING, JobStatus.FAILED, JobStatus.RUNNING);
         this.attemptCount++;
         this.status = JobStatus.RUNNING;
         this.startedAt = LocalDateTime.now();

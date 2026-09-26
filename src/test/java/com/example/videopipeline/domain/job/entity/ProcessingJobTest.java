@@ -40,12 +40,18 @@ class ProcessingJobTest {
     }
 
     @Test
-    void RUNNING에서는_시작할_수_없다() {
+    void RUNNING에서_다시_시작하면_새_시도로_선점하고_이전_시도의_결과는_거부된다() {
         ProcessingJob job = newJob();
-        job.start();
+        job.start();                       // attempt 1 — 워커 A가 처리 중
+        job.start();                       // 리밸런스로 재전달된 레코드를 워커 B가 선점 → attempt 2
 
-        assertThatThrownBy(job::start)
-                .isInstanceOf(InvalidJobTransitionException.class);
+        assertThat(job.getStatus()).isEqualTo(JobStatus.RUNNING);
+        assertThat(job.getAttemptCount()).isEqualTo(2);
+        assertThatThrownBy(() -> job.succeed(1)) // 워커 A의 뒤늦은 성공 보고
+                .isInstanceOf(StaleJobAttemptException.class);
+
+        job.succeed(2);
+        assertThat(job.getStatus()).isEqualTo(JobStatus.SUCCEEDED);
     }
 
     @Test
