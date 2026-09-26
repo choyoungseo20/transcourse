@@ -1,0 +1,11 @@
+run              busy revoked moved dup wasted_s wasted_% kept_skip avg_enc
+range               4       6     3   2    651.2     20.2         2     230
+cooperative         5       1     1   1    418.4     12.0         0     269
+range-2             5       6     1   0        0      0.0         5     197
+cooperative-2       5       1     1   0        0      0.0         0     239
+range-3             5       6     5   5   2304.6     41.7         0     325
+cooperative-3       5       1     1   1    349.9      9.7         0     278
+range-4             5       6     1   1    422.4     10.1         5     321
+cooperative-4       5       1     1   1    233.6      7.1         0     252
+range avg         4.8       6   2.5   2    844.5     18.0         3  n=4
+cooperative avg     5       1     1 0.8    250.5      7.2         0  n=4

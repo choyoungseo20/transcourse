@@ -1,0 +1,7 @@
+services:
+  app:
+    environment:
+      APP_RECOVERY_RUNNING_TIMEOUT: 30m
+  worker:
+    environment:
+      APP_RECOVERY_RUNNING_TIMEOUT: 30m
