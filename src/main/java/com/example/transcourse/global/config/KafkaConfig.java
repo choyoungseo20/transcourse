@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.listener.ContainerProperties.AckMode;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -24,8 +25,14 @@ public class KafkaConfig {
         return TopicBuilder.name(topic).partitions(partitions).replicas(1).build();
     }
 
-    // 짧은 작업은 같은 자리에서 백오프 재시도
-    // 트랜스코딩은 재시도 토픽 설정이 이 핸들러를 대체
+    @Bean
+    public NewTopic transcodingRetryTopic(
+            @Value("${app.kafka.transcoding-retry-topic}") String topic,
+            @Value("${app.kafka.jobs-partitions}") int partitions) {
+        return TopicBuilder.name(topic).partitions(partitions).replicas(1).build();
+    }
+
+    // 리스너가 던진 예외의 같은 자리 백오프 재시도
     @Bean
     public DefaultErrorHandler jobErrorHandler(
             ShortJobConsumer shortJobConsumer,
@@ -48,6 +55,7 @@ public class KafkaConfig {
         return executor;
     }
 
+    // 리스너 반환 뒤 워커 스레드에서 끝나는 처리에 맞춘 수동 ack 방식
     // 리밸런싱 기록 대상을 트랜스코딩 그룹으로 한정하기 위한 전용 팩토리
     @Bean
     public ConcurrentKafkaListenerContainerFactory<Object, Object> transcodingContainerFactory(
@@ -56,6 +64,7 @@ public class KafkaConfig {
             RebalanceEventRepository rebalanceEventRepository) {
         ConcurrentKafkaListenerContainerFactory<Object, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         configurer.configure(factory, consumerFactory);
+        factory.getContainerProperties().setAckMode(AckMode.MANUAL_IMMEDIATE);
         factory.getContainerProperties().setConsumerRebalanceListener(new RebalanceRecorder(rebalanceEventRepository));
         return factory;
     }

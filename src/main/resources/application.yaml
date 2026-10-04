@@ -42,6 +42,7 @@ app:
     ffmpeg-path: ffmpeg
   kafka:
     jobs-topic: video.jobs
+    transcoding-retry-topic: video.jobs-transcoding-retry
     jobs-partitions: 6
     transcoding-threads: 6
     job-attempts: 3

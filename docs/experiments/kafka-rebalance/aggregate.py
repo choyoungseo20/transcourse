@@ -11,10 +11,10 @@ for line in open(f'{S}/runs.txt'):
     # 증설 전후의 소유자 비교로 이동 파티션 계산
     # 재시도 토픽 그룹과 재시도 토픽 실행 이력은 집계 대상에서 제외
     before={}
-    for mem,parts in q(f"select member_id,partitions from rebalance_event where member_id not like 'consumer-job-transcoding-transcoding-%' and type='ASSIGNED' and occurred_at<'{ts}' order by id"):
+    for mem,parts in q(f"select member_id,partitions from rebalance_event where member_id not like 'consumer-job-transcoding-retry-%' and type='ASSIGNED' and occurred_at<'{ts}' order by id"):
         for p in parts.split(','):
             if p: before[p]=mem
-    ev=q(f"select type,member_id,partitions from rebalance_event where member_id not like 'consumer-job-transcoding-transcoding-%' and occurred_at between '{ts}' and date_add('{ts}', interval 90 second) order by id")
+    ev=q(f"select type,member_id,partitions from rebalance_event where member_id not like 'consumer-job-transcoding-retry-%' and occurred_at between '{ts}' and date_add('{ts}', interval 90 second) order by id")
     revoked=set(); after=dict(before)
     for typ,mem,parts in ev:
         for p in parts.split(','):
