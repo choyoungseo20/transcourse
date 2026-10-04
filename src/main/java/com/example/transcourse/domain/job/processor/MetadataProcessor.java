@@ -51,7 +51,7 @@ public class MetadataProcessor implements JobProcessor {
                     .orElseThrow(() -> new IllegalStateException("영상 스트림이 없는 파일"));
             String audioCodec = findStream(result, CodecType.AUDIO)
                     .map(stream -> stream.codec_name)
-                    .orElse(null); // 무음 영상은 오디오 스트림이 없을 수 있다
+                    .orElse(null); // 오디오 스트림이 없을 수 있는 무음 영상
             return new VideoMetadata(
                     result.getFormat().duration,
                     videoStream.width,

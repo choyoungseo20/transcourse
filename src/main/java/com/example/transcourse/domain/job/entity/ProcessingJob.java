@@ -49,7 +49,7 @@ public class ProcessingJob extends BaseEntity {
     @Column(nullable = false)
     private int attemptCount;
 
-    // 시도별 이력이 아닌 가장 최근 시도 기준 값들
+    // 시도별 이력이 아닌 최근 시도의 값
     private LocalDateTime startedAt;
 
     private LocalDateTime finishedAt;
@@ -67,9 +67,9 @@ public class ProcessingJob extends BaseEntity {
         return new ProcessingJob(videoId, type);
     }
 
-    // RUNNING에서의 start는 at-least-once 재전달을 새 시도로 선점하는 경우다.
-    // 먼저 돌던 시도는 중단되지 않는다.
-    // 그 결과는 시도 번호 불일치로 거부된다.
+    // RUNNING에서의 start는 at-least-once 재전달을 새 시도로 선점하는 경우
+    // 먼저 돌던 시도는 중단 없이 계속 실행
+    // 먼저 돌던 시도의 결과는 시도 번호 불일치로 거부
     public void start() {
         ensureStatusIn(JobStatus.PENDING, JobStatus.FAILED, JobStatus.RUNNING);
         this.attemptCount++;

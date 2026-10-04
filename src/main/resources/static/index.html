@@ -212,7 +212,8 @@
     let hls = null;
     let currentVideoId = null;
     let polling = false;
-    // 재업로드 시 증가 — 이전 업로드의 늦은 응답이 현재 화면을 덮지 않게 하는 토큰
+    // 재업로드마다 증가하는 토큰
+    // 이전 업로드의 늦은 응답에 의한 화면 덮어쓰기 방지
     let session = 0;
 
     el('upload-btn').addEventListener('click', upload);
@@ -253,7 +254,7 @@
         }
     }
 
-    // setTimeout 체이닝 — 응답을 받은 뒤에만 다음 조회를 예약해 요청 중첩·응답 역전을 차단
+    // 응답 수신 뒤의 다음 조회 예약으로 요청 중첩과 응답 역전 방지
     function startPolling(videoId) {
         const current = session;
         polling = true;

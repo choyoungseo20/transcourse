@@ -28,7 +28,7 @@ jobs:
       - name: ffmpeg 설치
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
 
-      # 테스트는 local 프로파일로 실행되므로 그 기본값(root/localroot, minio/localminio)에 맞춘다
+      # local 프로파일로 실행되는 테스트에 맞춘 기본 계정
       - name: 테스트 인프라 기동 (MySQL, MinIO, Kafka)
         run: |
           cat > .env <<EOF

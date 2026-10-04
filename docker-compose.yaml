@@ -11,7 +11,7 @@ services:
       DB_USERNAME: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
       APP_STORAGE_ENDPOINT: http://minio:9000
-      # presigned URL은 호스트(브라우저) 기준 주소로 서명해야 유효하다
+      # 브라우저가 접근하는 호스트 주소로 서명해야 유효한 presigned URL
       APP_STORAGE_PRESIGN_ENDPOINT: http://localhost:9000
       APP_STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER}
       APP_STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
@@ -25,7 +25,8 @@ services:
       kafka:
         condition: service_healthy
 
-  # 증설 실험용 컨슈머 인스턴스. 포트를 열지 않아 --scale worker=N으로 늘릴 수 있다
+  # 증설 실험용 컨슈머 인스턴스
+  # 포트를 열지 않아 scale 옵션으로 증설 가능
   worker:
     build: .
     environment:

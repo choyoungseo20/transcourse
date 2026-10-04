@@ -23,7 +23,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class TranscodingProcessor implements JobProcessor {
 
-    // 단일 렌디션 720p — 원본이 더 작으면 업스케일하지 않는다
+    // 단일 렌디션 720p
+    // 더 작은 원본의 업스케일 생략
     private static final String SCALE_FILTER = "scale=-2:'min(720,ih)'";
     private static final long SEGMENT_SECONDS = 4;
     private static final String SEGMENT_FILE_PATTERN = "segment-%03d.ts";
@@ -67,7 +68,7 @@ public class TranscodingProcessor implements JobProcessor {
                 .addExtraArgs("-force_key_frames", "expr:gte(t,n_forced*" + SEGMENT_SECONDS + ")")
                 .addExtraArgs("-sc_threshold", "0")
                 .setHlsTime(SEGMENT_SECONDS, TimeUnit.SECONDS)
-                .setHlsListSize(0) // 전체 세그먼트를 플레이리스트에 유지 (VOD)
+                .setHlsListSize(0) // VOD라 전체 세그먼트를 플레이리스트에 유지
                 .setHlsSegmentFileName(outputDir.resolve(SEGMENT_FILE_PATTERN).toString())
                 .done();
         try {

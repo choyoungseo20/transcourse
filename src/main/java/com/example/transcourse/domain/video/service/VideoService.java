@@ -35,7 +35,7 @@ public class VideoService {
 
         jobService.createAllFor(video.getId());
 
-        // 리스너는 AFTER_COMMIT에 실행되므로 트랜잭션 안에서 발행해야 한다
+        // AFTER_COMMIT 리스너 수신을 위한 트랜잭션 안에서의 발행
         eventPublisher.publishEvent(VideoUploaded.of(video));
 
         return VideoUploadResponse.from(video);

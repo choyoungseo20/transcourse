@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
-// 발행에 실패해 PENDING으로 남은 job은 복구 폴러가 다시 발행한다
+// 발행 실패로 PENDING에 남은 job의 복구 폴러 재발행
 @Slf4j
 @Component
 public class JobEventPublisher {
@@ -26,7 +26,7 @@ public class JobEventPublisher {
         send(videoId, null);
     }
 
-    // 재전달 선점으로 다른 유형의 진행 중 시도를 무효화하지 않도록 해당 유형만 지정한다
+    // 재전달 선점에 의한 다른 유형의 진행 중 시도 무효화를 막기 위한 유형 지정
     public void publishRetry(ProcessingJob job) {
         send(job.getVideoId(), job.getType());
     }

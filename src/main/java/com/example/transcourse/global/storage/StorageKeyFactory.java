@@ -3,11 +3,11 @@ package com.example.transcourse.global.storage;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-// 영상 하나의 모든 객체는 videos/{uuid}/ 아래에 모인다
+// videos/{uuid}/ 아래에 모이는 영상 하나의 모든 객체
 @Component
 public class StorageKeyFactory {
 
-    // 프로세서가 로컬 산출물 파일명을 키와 일치시킬 때도 쓴다
+    // 프로세서의 로컬 산출물 파일명과 키의 일치에도 사용
     public static final String HLS_PLAYLIST_NAME = "playlist.m3u8";
 
     private static final String ORIGINAL_KEY_FORMAT = "videos/%s/original";

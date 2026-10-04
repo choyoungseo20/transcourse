@@ -14,12 +14,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 상태 전이를 각각 짧은 트랜잭션으로 커밋해, 처리 도중에도 현재 상태가 조회에 보이게 한다
+// 처리 도중의 상태 조회를 위한 상태 전이별 짧은 트랜잭션 커밋
 @Service
 @RequiredArgsConstructor
 public class JobService {
 
-    private static final String TIMED_OUT_FAILURE_REASON = "실행 타임아웃 초과 — 서버 중단으로 유실된 시도로 판정";
+    private static final String TIMED_OUT_FAILURE_REASON = "실행 타임아웃 초과에 따른 유실 판정";
 
     private final ProcessingJobRepository jobRepository;
 

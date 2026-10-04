@@ -92,7 +92,7 @@ class ProcessingJobTest {
     @Test
     void 만료된_시도의_성공_기록은_거부된다() {
         ProcessingJob job = failedJob();
-        job.start(); // attempt 2
+        job.start(); // 시도 2
 
         assertThatThrownBy(() -> job.succeed(1))
                 .isInstanceOf(StaleJobAttemptException.class);
@@ -101,7 +101,7 @@ class ProcessingJobTest {
     @Test
     void 만료된_시도의_실패_기록은_거부된다() {
         ProcessingJob job = failedJob();
-        job.start(); // attempt 2
+        job.start(); // 시도 2
 
         assertThatThrownBy(() -> job.fail("늦은 실패", 1))
                 .isInstanceOf(StaleJobAttemptException.class);
@@ -163,7 +163,7 @@ class ProcessingJobTest {
     }
 
     @Test
-    void 수동_재시도는_시도_횟수를_되돌리지_않는다() { // ABA 회귀 — 번호 재사용은 fence를 무력화한다
+    void 수동_재시도는_시도_횟수를_되돌리지_않는다() { // 시도 번호 재사용에 따른 ABA 회귀 방지
         ProcessingJob job = exhaustedJob();
 
         job.resetForManualRetry();
@@ -174,7 +174,7 @@ class ProcessingJobTest {
     }
 
     @Test
-    void 수동_재시도_후_다시_실패하면_즉시_EXHAUSTED다() { // 수동 재시도 = 1회의 추가 기회
+    void 수동_재시도_후_다시_실패하면_즉시_EXHAUSTED다() { // 1회의 추가 기회인 수동 재시도
         ProcessingJob job = exhaustedJob();
         job.resetForManualRetry();
         job.start();
@@ -195,9 +195,9 @@ class ProcessingJobTest {
     @Test
     void 좀비_판정_후_재실행되면_만료된_시도의_기록은_거부되고_현재_시도만_통과한다() {
         ProcessingJob job = newJob();
-        job.start();                       // attempt 1 — 워커 A가 처리 중
-        job.fail("실행 타임아웃 초과", 1);      // 폴러가 좀비 판정
-        job.start();                       // 재실행 → attempt 2
+        job.start();                       // 워커 A의 시도 1
+        job.fail("실행 타임아웃 초과", 1);      // 폴러의 좀비 판정
+        job.start();                       // 재실행된 시도 2
 
         assertThatThrownBy(() -> job.succeed(1)) // 워커 A의 뒤늦은 성공 보고
                 .isInstanceOf(StaleJobAttemptException.class);

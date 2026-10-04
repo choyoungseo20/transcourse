@@ -3,7 +3,8 @@ package com.example.transcourse.global.exception;
 import com.example.transcourse.global.apipayload.ErrorCode;
 import lombok.Getter;
 
-// 에러 컨텍스트 운반체 — 클라이언트용 메시지는 code에, 로그용 상세(detail)는 getMessage()에 싣는다
+// code에 싣는 클라이언트용 메시지
+// getMessage()에 싣는 로그용 상세
 @Getter
 public class GeneralException extends RuntimeException {
 

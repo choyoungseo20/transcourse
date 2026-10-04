@@ -15,7 +15,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 같은 partition·offset의 행이 둘 이상이면 재전달이다.
+// 같은 partition·offset의 행이 둘 이상이면 재전달
 @Entity
 @Table(
         name = "worker_execution",

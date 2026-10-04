@@ -20,9 +20,10 @@ import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
-// 인코딩은 max.poll.interval.ms를 넘기므로 워커 스레드에서 실행한다.
-// pause/resume은 워커 스레드에서도 호출할 수 있는 컨테이너 API로 요청한다.
-// 컨테이너가 리밸런스 후 재할당된 파티션을 다시 pause하므로, 재전달된 레코드는 진행 중 작업이 끝난 뒤 도착한다.
+// max.poll.interval.ms를 넘기는 인코딩의 워커 스레드 실행
+// 워커 스레드에서도 호출 가능한 컨테이너 API로의 pause·resume 요청
+// 리밸런스 후 재할당된 파티션에 대한 컨테이너의 pause 재적용
+// 재할당 파티션의 재전달 레코드는 진행 중 작업 종료 뒤 도착
 @Slf4j
 @Component
 public class TranscodingJobConsumer {

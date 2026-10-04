@@ -10,7 +10,7 @@ spring:
     consumer:
       auto-offset-reset: earliest
       enable-auto-commit: false
-      # 레코드마다 원본 전체를 내려받아 처리하므로 한 건씩 가져온다
+      # 레코드마다 원본 전체를 내려받는 처리에 맞춘 한 건 단위 조회
       max-poll-records: 1
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -46,13 +46,13 @@ app:
     transcoding-threads: 6
   recovery:
     poll-interval: 60s
-    # 토픽에서 대기하는 시간은 정상이므로, 발행 유실로 볼 만큼 충분히 길어야 한다
+    # 정상적인 토픽 대기를 유실로 오판하지 않을 만큼 긴 기준
     pending-stale-after: 10m
     running-timeout: 300s
   storage:
     endpoint: ${APP_STORAGE_ENDPOINT:http://localhost:9000}
     presign-endpoint: ${APP_STORAGE_PRESIGN_ENDPOINT:}
-    # 플레이리스트 발급 시점에 모든 세그먼트 URL이 고정되므로, VOD 최대 재생 시간보다 길어야 한다
+    # 발급 시점에 고정되는 세그먼트 URL에 맞춘, 최대 재생 시간보다 긴 유효 기간
     presign-ttl: 4h
     bucket: transcourse
     access-key: ${APP_STORAGE_ACCESS_KEY:minio}

@@ -22,8 +22,8 @@ public class KafkaConfig {
         return TopicBuilder.name(topic).partitions(partitions).replicas(1).build();
     }
 
-    // 동시 실행 수의 상한은 이 풀이 아니라 할당된 파티션 수다.
-    // 파티션마다 진행 중인 레코드는 1건이다.
+    // 동시 실행 수의 상한은 이 풀이 아닌 할당 파티션 수
+    // 파티션마다 진행 중인 레코드는 1건
     @Bean
     public ThreadPoolTaskExecutor transcodingExecutor(@Value("${app.kafka.transcoding-threads}") int threads) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
@@ -33,7 +33,7 @@ public class KafkaConfig {
         return executor;
     }
 
-    // 처리가 리스너 반환 뒤 워커 스레드에서 끝나므로 수동 ack를 쓴다
+    // 리스너 반환 뒤 워커 스레드에서 끝나는 처리에 맞춘 수동 ack 방식
     @Bean
     public ConcurrentKafkaListenerContainerFactory<Object, Object> transcodingContainerFactory(
             ConcurrentKafkaListenerContainerFactoryConfigurer configurer,

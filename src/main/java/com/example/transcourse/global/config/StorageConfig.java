@@ -36,10 +36,10 @@ public class StorageConfig {
     public S3Client s3Client(StorageProperties props) {
         return S3Client.builder()
                 .endpointOverride(URI.create(props.endpoint()))
-                .region(Region.US_EAST_1) // MinIO는 리전을 검증하지 않지만 SDK가 필수로 요구한다
+                .region(Region.US_EAST_1) // MinIO의 검증 대상은 아니지만 SDK가 요구하는 필수 값
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(props.accessKey(), props.secretKey())))
-                .forcePathStyle(true) // MinIO는 가상 호스트 스타일(bucket.host) 대신 경로 스타일(host/bucket)을 쓴다
+                .forcePathStyle(true) // MinIO에 맞춘 경로 스타일 접근
                 .build();
     }
 

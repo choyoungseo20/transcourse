@@ -23,7 +23,7 @@ public class Video extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 원본 정보 — 업로드 시점에 채워진다
+    // 업로드 시점에 채우는 원본 정보
     @Column(nullable = false)
     private String originalName;
 
@@ -33,7 +33,7 @@ public class Video extends BaseEntity {
     @Column(nullable = false)
     private Long fileSize;
 
-    // 원본 메타데이터 — METADATA job이 채운다
+    // METADATA job이 채우는 원본 메타데이터
     private Double durationSec;
 
     private Integer width;
@@ -44,7 +44,7 @@ public class Video extends BaseEntity {
 
     private String audioCodec;
 
-    // 처리 결과 — THUMBNAIL / TRANSCODING job이 채운다
+    // THUMBNAIL·TRANSCODING job이 채우는 처리 결과
     private String thumbnailPath;
 
     private String playlistPath;
