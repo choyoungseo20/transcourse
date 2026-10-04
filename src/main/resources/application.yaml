@@ -1,6 +1,6 @@
 spring:
   application:
-    name: video-processing-pipeline
+    name: transcourse
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -58,6 +58,6 @@ app:
     presign-endpoint: ${APP_STORAGE_PRESIGN_ENDPOINT:}
     # 플레이리스트 발급 시점에 모든 세그먼트 URL이 고정되므로, VOD 최대 재생 시간보다 길어야 한다
     presign-ttl: 4h
-    bucket: videopipeline
+    bucket: transcourse
     access-key: ${APP_STORAGE_ACCESS_KEY:minio}
     secret-key: ${APP_STORAGE_SECRET_KEY:localminio}

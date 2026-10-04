@@ -1,7 +1,7 @@
 #!/bin/zsh
 S=$(cd "$(dirname "$0")" && pwd)
 cd "$S/../../.."
-KT="docker exec video-processing-pipeline-kafka-1 /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:19092 --describe --group video-jobs"
+KT="docker exec transcourse-kafka-1 /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:19092 --describe --group video-jobs"
 restart_consumers() {
   local strategy=$1
   docker compose --profile scale stop app worker >/dev/null 2>&1

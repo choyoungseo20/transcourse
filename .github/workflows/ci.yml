@@ -32,8 +32,8 @@ jobs:
       - name: 테스트 인프라 기동 (MySQL, MinIO, Kafka)
         run: |
           cat > .env <<EOF
-          MYSQL_DATABASE=videopipeline
-          MYSQL_USER=videopipeline
+          MYSQL_DATABASE=transcourse
+          MYSQL_USER=transcourse
           MYSQL_PASSWORD=ci-only
           MYSQL_ROOT_PASSWORD=localroot
           MINIO_ROOT_USER=minio

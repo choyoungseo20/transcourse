@@ -3,7 +3,7 @@ import os
 S=os.path.dirname(os.path.abspath(__file__))+'/results'
 PW=[l.split('=',1)[1].strip() for l in open(os.path.join(S,'..','..','..','..','.env')) if l.startswith('MYSQL_ROOT_PASSWORD=')][0]
 def q(sql):
-    out=subprocess.run(['docker','exec','video-processing-pipeline-mysql-1','mysql','-uroot','-p'+PW,'videopipeline','-N','-B','-e',sql],capture_output=True,text=True).stdout
+    out=subprocess.run(['docker','exec','transcourse-mysql-1','mysql','-uroot','-p'+PW,'transcourse','-N','-B','-e',sql],capture_output=True,text=True).stdout
     return [l.split('\t') for l in out.split('\n') if l.strip() and 'Using a password' not in l]
 rows=[]
 for line in open(f'{S}/runs.txt'):

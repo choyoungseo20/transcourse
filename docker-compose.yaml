@@ -1,3 +1,5 @@
+name: transcourse
+
 services:
   app:
     build: .

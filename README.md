@@ -1,4 +1,4 @@
-# video-processing-pipeline
+# TransCourse
 
 > 영상 업로드 이후 필요한 후처리 작업을 안정적으로 수행하는 시스템
 
