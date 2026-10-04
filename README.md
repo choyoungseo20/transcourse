@@ -1,4 +1,4 @@
-# video-processing-pipeline
+# TransCourse
 
 > 영상 업로드 이후 필요한 후처리 작업을 안정적으로 수행하는 시스템
 
@@ -64,6 +64,7 @@
 
 * Java 21, Spring Boot 4.1.1
 * Spring Data JPA, MySQL 8.4
+* Spring for Apache Kafka, Kafka 4.0 (KRaft)
 * springdoc-openapi (Swagger UI)
 * Docker, Docker Compose
 
@@ -94,12 +95,27 @@ docker compose up --build -d
 docker compose down
 ```
 
-### 로컬에서 앱만 실행
+### 컨슈머 증설 실험
 
-MySQL만 Docker로 띄우고 앱은 로컬 `local` 프로파일로 실행합니다.
+`worker` 서비스는 포트를 열지 않는 컨슈머 인스턴스입니다. 인코딩 중에 대수를 늘리면 `job-transcoding` 그룹에서 리밸런싱이 일어나고, 그 결과는 `rebalance_event`·`worker_execution` 테이블에 남습니다.
 
 ```bash
-docker compose up -d mysql
+docker compose --profile scale up -d --scale worker=3
+docker compose --profile scale up -d --scale worker=4 --no-recreate worker   # 인코딩 중 1대 증설
+```
+
+할당 전략은 `KAFKA_ASSIGNMENT_STRATEGY`로 바꿉니다. 기본값은 `RangeAssignor`입니다.
+
+```bash
+KAFKA_ASSIGNMENT_STRATEGY=org.apache.kafka.clients.consumer.CooperativeStickyAssignor docker compose --profile scale up -d --scale worker=3
+```
+
+### 로컬에서 앱만 실행
+
+MySQL, MinIO, Kafka만 Docker로 띄우고 앱은 로컬 `local` 프로파일로 실행합니다.
+
+```bash
+docker compose up -d mysql minio kafka
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 

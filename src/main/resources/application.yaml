@@ -1,12 +1,22 @@
 spring:
   application:
-    name: video-processing-pipeline
-  task:
-    execution:
-      pool:
-        core-size: 8
-        max-size: 8
-        queue-capacity: 100
+    name: transcourse
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      # 레코드마다 원본 전체를 내려받는 처리에 맞춘 한 건 단위 조회
+      max-poll-records: 1
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        "[group.protocol]": classic
+        "[partition.assignment.strategy]": ${KAFKA_ASSIGNMENT_STRATEGY:org.apache.kafka.clients.consumer.RangeAssignor}
   servlet:
     multipart:
       max-file-size: 1GB
@@ -30,15 +40,22 @@ app:
   ffmpeg:
     ffprobe-path: ffprobe
     ffmpeg-path: ffmpeg
+  kafka:
+    jobs-topic: video.jobs
+    transcoding-retry-topic: video.jobs-transcoding-retry
+    jobs-partitions: 6
+    transcoding-threads: 6
+    job-attempts: 3
+    retry-delay-ms: 5000
   recovery:
     poll-interval: 60s
-    pending-stale-after: 60s
-    running-timeout: 300s
+    # 정상적인 토픽 대기를 유실로 오판하지 않을 만큼 긴 기준
+    pending-stale-after: 10m
   storage:
     endpoint: ${APP_STORAGE_ENDPOINT:http://localhost:9000}
     presign-endpoint: ${APP_STORAGE_PRESIGN_ENDPOINT:}
-    # 플레이리스트 발급 시점에 모든 세그먼트 URL이 고정되므로, VOD 최대 재생 시간보다 길어야 한다
+    # 발급 시점에 고정되는 세그먼트 URL에 맞춘, 최대 재생 시간보다 긴 유효 기간
     presign-ttl: 4h
-    bucket: videopipeline
+    bucket: transcourse
     access-key: ${APP_STORAGE_ACCESS_KEY:minio}
     secret-key: ${APP_STORAGE_SECRET_KEY:localminio}
