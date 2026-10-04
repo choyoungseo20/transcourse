@@ -1,8 +1,5 @@
-package com.example.videopipeline.domain.job.messaging;
+package com.example.videopipeline.domain.job.experiment;
 
-import com.example.videopipeline.domain.job.entity.RebalanceEvent;
-import com.example.videopipeline.domain.job.entity.RebalanceEventType;
-import com.example.videopipeline.domain.job.repository.RebalanceEventRepository;
 import java.util.Collection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

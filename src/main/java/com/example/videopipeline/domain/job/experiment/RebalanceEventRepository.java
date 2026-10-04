@@ -1,6 +1,5 @@
-package com.example.videopipeline.domain.job.repository;
+package com.example.videopipeline.domain.job.experiment;
 
-import com.example.videopipeline.domain.job.entity.RebalanceEvent;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface RebalanceEventRepository extends JpaRepository<RebalanceEvent, Long> {

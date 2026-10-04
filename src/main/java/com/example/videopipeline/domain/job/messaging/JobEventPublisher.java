@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
-// 발행 실패는 예외로 전파하지 않는다 — PENDING으로 남은 job은 복구 폴러가 다시 발행한다
+// 발행에 실패해 PENDING으로 남은 job은 복구 폴러가 다시 발행한다
 @Slf4j
 @Component
 public class JobEventPublisher {

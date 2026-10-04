@@ -1,10 +1,10 @@
 package com.example.videopipeline.domain.job.messaging;
 
+import com.example.videopipeline.domain.job.entity.JobExecutionResult;
 import com.example.videopipeline.domain.job.exception.JobNotFoundException;
-import com.example.videopipeline.domain.job.service.JobExecutionResult;
+import com.example.videopipeline.domain.job.experiment.WorkerExecutionRecorder;
 import com.example.videopipeline.domain.job.service.JobService;
 import com.example.videopipeline.domain.job.service.JobWorker;
-import com.example.videopipeline.domain.job.service.WorkerExecutionRecorder;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -18,9 +18,9 @@ import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
-// 컨슈머 스레드는 poll()만 유지하고 인코딩은 워커 스레드에서 한다.
-// pause/resume은 Consumer 객체가 아니라 컨테이너 API로 요청한다 — 워커 스레드에서 resume하려면 이 방법뿐이고,
-// 컨테이너가 리밸런스 후 재할당된 파티션을 다시 pause해 준다는 차이가 있다.
+// 인코딩은 max.poll.interval.ms를 넘기므로 워커 스레드에서 실행한다.
+// pause/resume은 워커 스레드에서도 호출할 수 있는 컨테이너 API로 요청한다.
+// 컨테이너가 리밸런스 후 재할당된 파티션을 다시 pause하므로, 재전달된 레코드는 진행 중 작업이 끝난 뒤 도착한다.
 @Slf4j
 @Component
 public class JobRequestConsumer {
@@ -57,9 +57,6 @@ public class JobRequestConsumer {
         workerExecutor.execute(() -> {
             try {
                 recorder.finished(executionId, run(jobId));
-            } catch (RuntimeException e) {
-                log.error("job 실행 중 예상 밖 예외: jobId={}", jobId, e);
-                recorder.finished(executionId, JobExecutionResult.FAILED);
             } finally {
                 ack.acknowledge();
                 container().resumePartition(partition);
@@ -73,6 +70,9 @@ public class JobRequestConsumer {
         } catch (JobNotFoundException e) {
             log.warn("존재하지 않는 job의 실행 요청을 버림: jobId={}", jobId);
             return JobExecutionResult.SKIPPED;
+        } catch (RuntimeException e) {
+            log.error("job 실행 중 예상 밖 예외: jobId={}", jobId, e);
+            return JobExecutionResult.FAILED;
         }
     }
 

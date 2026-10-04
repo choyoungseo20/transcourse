@@ -1,4 +1,4 @@
-package com.example.videopipeline.domain.job.entity;
+package com.example.videopipeline.domain.job.experiment;
 
 public enum RebalanceEventType {
     REVOKED,

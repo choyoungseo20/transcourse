@@ -1,5 +1,6 @@
 package com.example.videopipeline.domain.job.service;
 
+import com.example.videopipeline.domain.job.entity.JobExecutionResult;
 import com.example.videopipeline.domain.job.entity.JobType;
 import com.example.videopipeline.domain.job.entity.ProcessingJob;
 import com.example.videopipeline.domain.job.exception.InvalidJobTransitionException;

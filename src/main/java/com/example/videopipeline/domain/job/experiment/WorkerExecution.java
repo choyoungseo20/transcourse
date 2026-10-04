@@ -1,6 +1,6 @@
-package com.example.videopipeline.domain.job.entity;
+package com.example.videopipeline.domain.job.experiment;
 
-import com.example.videopipeline.domain.job.service.JobExecutionResult;
+import com.example.videopipeline.domain.job.entity.JobExecutionResult;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,8 +15,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 증설 실험용 — 레코드(topic, partition, offset)마다 어느 컨슈머가 언제 무엇을 했는지 남긴다.
-// 같은 (partition, offset)이 두 번 이상 나타나면 재전달이다.
+// 같은 partition·offset의 행이 둘 이상이면 재전달이다.
 @Entity
 @Table(
         name = "worker_execution",

@@ -42,8 +42,8 @@ class ProcessingJobTest {
     @Test
     void RUNNING에서_다시_시작하면_새_시도로_선점하고_이전_시도의_결과는_거부된다() {
         ProcessingJob job = newJob();
-        job.start();                       // attempt 1 — 워커 A가 처리 중
-        job.start();                       // 리밸런스로 재전달된 레코드를 워커 B가 선점 → attempt 2
+        job.start();                       // 워커 A의 시도 1
+        job.start();                       // 재전달된 레코드를 받은 워커 B의 시도 2
 
         assertThat(job.getStatus()).isEqualTo(JobStatus.RUNNING);
         assertThat(job.getAttemptCount()).isEqualTo(2);

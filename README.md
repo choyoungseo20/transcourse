@@ -104,7 +104,7 @@ docker compose --profile scale up -d --scale worker=3
 docker compose --profile scale up -d --scale worker=4 --no-recreate worker   # 인코딩 중 1대 증설
 ```
 
-할당 전략은 `KAFKA_ASSIGNMENT_STRATEGY`로 바꿉니다 (기본 `RangeAssignor`).
+할당 전략은 `KAFKA_ASSIGNMENT_STRATEGY`로 바꿉니다. 기본값은 `RangeAssignor`입니다.
 
 ```bash
 KAFKA_ASSIGNMENT_STRATEGY=org.apache.kafka.clients.consumer.CooperativeStickyAssignor docker compose --profile scale up -d --scale worker=3

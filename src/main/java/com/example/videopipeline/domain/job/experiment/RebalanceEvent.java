@@ -1,4 +1,4 @@
-package com.example.videopipeline.domain.job.entity;
+package com.example.videopipeline.domain.job.experiment;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,7 +16,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.apache.kafka.common.TopicPartition;
 
-// 증설 실험용 — 리밸런스 콜백마다 revoke/assign 범위를 남긴다
 @Entity
 @Table(name = "rebalance_event")
 @Getter

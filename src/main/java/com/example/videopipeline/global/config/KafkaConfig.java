@@ -19,7 +19,8 @@ public class KafkaConfig {
         return TopicBuilder.name(topic).partitions(partitions).replicas(1).build();
     }
 
-    // 동시 실행 수는 이 풀이 아니라 할당된 파티션 수로 제한된다 (파티션당 진행 중 레코드 1건)
+    // 동시 실행 수의 상한은 이 풀이 아니라 할당된 파티션 수다.
+    // 파티션마다 진행 중인 레코드는 1건이다.
     @Bean
     public ThreadPoolTaskExecutor jobWorkerExecutor(@Value("${app.kafka.worker-threads}") int threads) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();

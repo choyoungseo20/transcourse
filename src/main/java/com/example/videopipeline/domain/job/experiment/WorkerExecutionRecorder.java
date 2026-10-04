@@ -1,7 +1,6 @@
-package com.example.videopipeline.domain.job.service;
+package com.example.videopipeline.domain.job.experiment;
 
-import com.example.videopipeline.domain.job.entity.WorkerExecution;
-import com.example.videopipeline.domain.job.repository.WorkerExecutionRepository;
+import com.example.videopipeline.domain.job.entity.JobExecutionResult;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.stereotype.Service;
