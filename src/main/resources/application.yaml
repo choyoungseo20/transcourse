@@ -8,19 +8,15 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
     consumer:
-      group-id: video-jobs
-      client-id: ${KAFKA_CLIENT_ID:${HOSTNAME:local}}
       auto-offset-reset: earliest
       enable-auto-commit: false
-      # 인코딩이 수 분씩 걸려 한 건씩 가져온다
+      # 레코드마다 원본 전체를 내려받아 처리하므로 한 건씩 가져온다
       max-poll-records: 1
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       properties:
         "[group.protocol]": classic
         "[partition.assignment.strategy]": ${KAFKA_ASSIGNMENT_STRATEGY:org.apache.kafka.clients.consumer.RangeAssignor}
-    listener:
-      ack-mode: manual_immediate
   servlet:
     multipart:
       max-file-size: 1GB
@@ -47,7 +43,7 @@ app:
   kafka:
     jobs-topic: video.jobs
     jobs-partitions: 6
-    worker-threads: 6
+    transcoding-threads: 6
   recovery:
     poll-interval: 60s
     # 토픽에서 대기하는 시간은 정상이므로, 발행 유실로 볼 만큼 충분히 길어야 한다

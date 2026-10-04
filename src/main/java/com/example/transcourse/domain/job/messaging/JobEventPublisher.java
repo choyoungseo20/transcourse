@@ -1,7 +1,10 @@
 package com.example.transcourse.domain.job.messaging;
 
+import com.example.transcourse.domain.job.entity.JobType;
 import com.example.transcourse.domain.job.entity.ProcessingJob;
+import java.nio.charset.StandardCharsets;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -19,11 +22,24 @@ public class JobEventPublisher {
         this.topic = topic;
     }
 
-    public void publish(ProcessingJob job) {
-        String jobId = String.valueOf(job.getId());
-        kafkaTemplate.send(topic, jobId, jobId).whenComplete((result, ex) -> {
+    public void publishUploaded(Long videoId) {
+        send(videoId, null);
+    }
+
+    // 재전달 선점으로 다른 유형의 진행 중 시도를 무효화하지 않도록 해당 유형만 지정한다
+    public void publishRetry(ProcessingJob job) {
+        send(job.getVideoId(), job.getType());
+    }
+
+    private void send(Long videoId, JobType targetType) {
+        String value = String.valueOf(videoId);
+        ProducerRecord<String, String> record = new ProducerRecord<>(topic, value, value);
+        if (targetType != null) {
+            record.headers().add(JobRequest.TARGET_TYPE_HEADER, targetType.name().getBytes(StandardCharsets.UTF_8));
+        }
+        kafkaTemplate.send(record).whenComplete((result, ex) -> {
             if (ex != null) {
-                log.error("job 실행 요청 발행 실패: jobId={}, type={}", job.getId(), job.getType(), ex);
+                log.error("job 실행 요청 발행 실패: videoId={}, targetType={}", videoId, targetType, ex);
             }
         });
     }

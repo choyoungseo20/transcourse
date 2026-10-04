@@ -41,7 +41,7 @@ class JobControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("COMMON200"));
 
-        verify(publisher).publish(any(ProcessingJob.class));
+        verify(publisher).publishRetry(any(ProcessingJob.class));
     }
 
     @Test

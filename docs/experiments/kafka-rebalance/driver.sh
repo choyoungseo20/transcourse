@@ -1,7 +1,7 @@
 #!/bin/zsh
 S=$(cd "$(dirname "$0")" && pwd)
 cd "$S/../../.."
-KT="docker exec transcourse-kafka-1 /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:19092 --describe --group video-jobs"
+KT="docker exec transcourse-kafka-1 /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:19092 --describe --group job-transcoding"
 restart_consumers() {
   local strategy=$1
   docker compose --profile scale stop app worker >/dev/null 2>&1
@@ -14,9 +14,13 @@ restart_consumers() {
   done
   eval "$KT --state" 2>/dev/null | tail -1
 }
-for round in 1 2 3 4; do
-  for strat in range cooperative; do
-    if [ $strat = range ]; then cls=org.apache.kafka.clients.consumer.RangeAssignor; else cls=org.apache.kafka.clients.consumer.CooperativeStickyAssignor; fi
+for round in ${=ROUNDS:-1 2 3 4}; do
+  for strat in ${=STRATEGIES:-range cooperative}; do
+    case $strat in
+      range) cls=org.apache.kafka.clients.consumer.RangeAssignor ;;
+      sticky) cls=org.apache.kafka.clients.consumer.StickyAssignor ;;
+      cooperative) cls=org.apache.kafka.clients.consumer.CooperativeStickyAssignor ;;
+    esac
     echo "=== $strat-$round restart"
     restart_consumers $cls
     export KAFKA_ASSIGNMENT_STRATEGY=$cls

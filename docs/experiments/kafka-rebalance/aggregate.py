@@ -32,7 +32,7 @@ for line in open(f'{S}/runs.txt'):
     rows.append(dict(label=label,busy=int(busy),revoked=len(revoked),moved=len(moved),dup=len(rejected),wasted=wasted,wasted_pct=round(wasted/float(total)*100,1),kept_skips=len(kept_skips),avg_enc=enc))
 print(f"{'run':16}{'busy':>5}{'revoked':>8}{'moved':>6}{'dup':>4}{'wasted_s':>9}{'wasted_%':>9}{'kept_skip':>10}{'avg_enc':>8}")
 for r in rows: print(f"{r['label']:16}{r['busy']:>5}{r['revoked']:>8}{r['moved']:>6}{r['dup']:>4}{r['wasted']:>9}{r['wasted_pct']:>9}{r['kept_skips']:>10}{r['avg_enc']:>8}")
-for strat in ('range','cooperative'):
+for strat in ('range','sticky','cooperative'):
     g=[r for r in rows if r['label'].split('-')[0]==strat]
     if not g: continue
     m=lambda k: round(statistics.mean(r[k] for r in g),1)

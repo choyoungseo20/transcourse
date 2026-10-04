@@ -97,7 +97,7 @@ docker compose down
 
 ### 컨슈머 증설 실험
 
-`worker` 서비스는 포트를 열지 않는 컨슈머 인스턴스입니다. 인코딩 중에 대수를 늘리면 리밸런싱이 일어나고, 그 결과는 `rebalance_event`·`worker_execution` 테이블에 남습니다.
+`worker` 서비스는 포트를 열지 않는 컨슈머 인스턴스입니다. 인코딩 중에 대수를 늘리면 `job-transcoding` 그룹에서 리밸런싱이 일어나고, 그 결과는 `rebalance_event`·`worker_execution` 테이블에 남습니다.
 
 ```bash
 docker compose --profile scale up -d --scale worker=3

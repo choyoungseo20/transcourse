@@ -22,7 +22,7 @@ public class JobController {
     @PostMapping("/{type}/retry")
     public CommonResponse<Void> retry(@PathVariable Long videoId, @PathVariable JobType type) {
         ProcessingJob job = jobService.resetForRetry(videoId, type);
-        publisher.publish(job);
+        publisher.publishRetry(job);
         return CommonResponse.onSuccess(null);
     }
 }

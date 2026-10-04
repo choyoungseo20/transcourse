@@ -2,6 +2,8 @@
 
 컨슈머 증설 시 RangeAssignor(Eager)와 CooperativeStickyAssignor의 중복 인코딩 비용 비교.
 
+아래 결과는 세 처리 유형이 하나의 컨슈머 그룹을 공유하던 구조에서 측정한 값이다.
+
 ## 조건
 
 - 컨슈머 3대(app 1 + worker 2), 파티션 6개, 480초 720p 노이즈 영상 12건 업로드

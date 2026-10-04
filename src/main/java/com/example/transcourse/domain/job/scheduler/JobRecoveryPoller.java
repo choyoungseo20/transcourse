@@ -42,6 +42,6 @@ public class JobRecoveryPoller {
         }
 
         log.info("방치된 job 복구: RUNNING 좀비 {}건 실패 처리, {}건 재발행", zombies.size(), targets.size());
-        targets.forEach(publisher::publish);
+        targets.forEach(publisher::publishRetry);
     }
 }

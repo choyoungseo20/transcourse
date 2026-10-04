@@ -29,9 +29,9 @@ public class JobService {
     }
 
     @Transactional(readOnly = true)
-    public ProcessingJob getJob(Long jobId) {
-        return jobRepository.findById(jobId)
-                .orElseThrow(() -> new JobNotFoundException(jobId));
+    public ProcessingJob getJob(Long videoId, JobType type) {
+        return jobRepository.findByVideoIdAndType(videoId, type)
+                .orElseThrow(() -> new JobNotFoundException(videoId, type));
     }
 
     @Transactional

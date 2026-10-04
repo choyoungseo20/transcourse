@@ -14,6 +14,8 @@ public interface ProcessingJobRepository extends JpaRepository<ProcessingJob, Lo
 
     List<ProcessingJob> findByVideoId(Long videoId);
 
+    Optional<ProcessingJob> findByVideoIdAndType(Long videoId, JobType type);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<ProcessingJob> findWithLockById(Long id);
 
