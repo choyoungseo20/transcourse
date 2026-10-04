@@ -6,7 +6,7 @@ restart_consumers() {
   local strategy=$1
   docker compose --profile scale stop app worker >/dev/null 2>&1
   docker compose --profile scale rm -f app worker >/dev/null 2>&1
-  KAFKA_ASSIGNMENT_STRATEGY=$strategy docker compose -f docker-compose.yaml -f $S/override.yaml --profile scale up -d --scale worker=2 app worker >/dev/null 2>&1
+  KAFKA_ASSIGNMENT_STRATEGY=$strategy docker compose --profile scale up -d --scale worker=2 app worker >/dev/null 2>&1
   for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8080/swagger-ui/index.html && break; sleep 3; done
   for i in $(seq 1 60); do
     eval "$KT --state" 2>/dev/null | grep -q "Stable *3" && break

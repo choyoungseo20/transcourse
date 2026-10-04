@@ -29,8 +29,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ProcessingJob extends BaseEntity {
 
-    private static final int MAX_ATTEMPT_COUNT = 3;
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -88,17 +86,24 @@ public class ProcessingJob extends BaseEntity {
     public void fail(String reason, int expectedAttempt) {
         ensureStatusIn(JobStatus.RUNNING);
         ensureCurrentAttempt(expectedAttempt);
-        this.status = attemptCount >= MAX_ATTEMPT_COUNT ? JobStatus.EXHAUSTED : JobStatus.FAILED;
+        this.status = JobStatus.FAILED;
         this.lastFailureReason = reason;
         this.finishedAt = LocalDateTime.now();
     }
 
+    // Kafka 재시도 소진 시의 종착
+    public void exhaust() {
+        ensureStatusIn(JobStatus.FAILED);
+        this.status = JobStatus.EXHAUSTED;
+    }
+
+    // FAILED는 Kafka 재시도가 진행 중인 상태라 수동 재시도 대상에서 제외
     public boolean isRetryable() {
-        return status == JobStatus.FAILED || status == JobStatus.EXHAUSTED;
+        return status == JobStatus.EXHAUSTED;
     }
 
     public void resetForManualRetry() {
-        ensureStatusIn(JobStatus.EXHAUSTED, JobStatus.FAILED);
+        ensureStatusIn(JobStatus.EXHAUSTED);
         this.status = JobStatus.PENDING;
         this.startedAt = null;
         this.finishedAt = null;

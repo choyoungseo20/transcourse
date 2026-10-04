@@ -9,11 +9,12 @@ rows=[]
 for line in open(f'{S}/runs.txt'):
     label,t0,ts,te,first=line.strip().split('|')
     # 증설 전후의 소유자 비교로 이동 파티션 계산
+    # 재시도 토픽 그룹과 재시도 토픽 실행 이력은 집계 대상에서 제외
     before={}
-    for mem,parts in q(f"select member_id,partitions from rebalance_event where type='ASSIGNED' and occurred_at<'{ts}' order by id"):
+    for mem,parts in q(f"select member_id,partitions from rebalance_event where member_id not like 'consumer-job-transcoding-transcoding-%' and type='ASSIGNED' and occurred_at<'{ts}' order by id"):
         for p in parts.split(','):
             if p: before[p]=mem
-    ev=q(f"select type,member_id,partitions from rebalance_event where occurred_at between '{ts}' and date_add('{ts}', interval 90 second) order by id")
+    ev=q(f"select type,member_id,partitions from rebalance_event where member_id not like 'consumer-job-transcoding-transcoding-%' and occurred_at between '{ts}' and date_add('{ts}', interval 90 second) order by id")
     revoked=set(); after=dict(before)
     for typ,mem,parts in ev:
         for p in parts.split(','):
@@ -22,12 +23,12 @@ for line in open(f'{S}/runs.txt'):
             elif typ=='ASSIGNED': after[p]=mem
     moved=[p for p in after if before.get(p)!=after[p]]
     dup=q(f"""select e.partition_no,e.record_offset,e.result,round(timestampdiff(microsecond,e.received_at,e.finished_at)/1e6,1)
-        from worker_execution e join processing_job j on j.id=e.job_id where j.type='TRANSCODING' and e.received_at>='{t0}' and e.received_at<'{te}'
-        and (e.partition_no,e.record_offset) in (select partition_no,record_offset from worker_execution where received_at>='{t0}' and received_at<'{te}' group by partition_no,record_offset having count(*)>1)""")
+        from worker_execution e join processing_job j on j.id=e.job_id where e.topic='video.jobs' and j.type='TRANSCODING' and e.received_at>='{t0}' and e.received_at<'{te}'
+        and (e.partition_no,e.record_offset) in (select partition_no,record_offset from worker_execution where topic='video.jobs' and received_at>='{t0}' and received_at<'{te}' group by partition_no,record_offset having count(*)>1)""")
     rejected=[float(d[3]) for d in dup if d[2]=='RESULT_REJECTED']
     kept_skips=[d for d in dup if d[2]=='SKIPPED']
-    busy=q(f"select count(distinct e.partition_no) from worker_execution e join processing_job j on j.id=e.job_id where j.type='TRANSCODING' and e.received_at<'{ts}' and e.finished_at>'{ts}'")[0][0]
-    enc,total=q(f"select round(avg(timestampdiff(microsecond,e.received_at,e.finished_at))/1e6), round(sum(timestampdiff(microsecond,e.received_at,e.finished_at))/1e6,1) from worker_execution e join processing_job j on j.id=e.job_id where j.type='TRANSCODING' and e.result in ('SUCCEEDED','RESULT_REJECTED') and e.received_at>='{t0}' and e.received_at<'{te}'")[0]
+    busy=q(f"select count(distinct e.partition_no) from worker_execution e join processing_job j on j.id=e.job_id where e.topic='video.jobs' and j.type='TRANSCODING' and e.received_at<'{ts}' and e.finished_at>'{ts}'")[0][0]
+    enc,total=q(f"select round(avg(timestampdiff(microsecond,e.received_at,e.finished_at))/1e6), round(sum(timestampdiff(microsecond,e.received_at,e.finished_at))/1e6,1) from worker_execution e join processing_job j on j.id=e.job_id where e.topic='video.jobs' and j.type='TRANSCODING' and e.result in ('SUCCEEDED','RESULT_REJECTED') and e.received_at>='{t0}' and e.received_at<'{te}'")[0]
     wasted=round(sum(rejected),1)
     rows.append(dict(label=label,busy=int(busy),revoked=len(revoked),moved=len(moved),dup=len(rejected),wasted=wasted,wasted_pct=round(wasted/float(total)*100,1),kept_skips=len(kept_skips),avg_enc=enc))
 print(f"{'run':16}{'busy':>5}{'revoked':>8}{'moved':>6}{'dup':>4}{'wasted_s':>9}{'wasted_%':>9}{'kept_skip':>10}{'avg_enc':>8}")

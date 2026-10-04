@@ -119,16 +119,37 @@ class ProcessingJobTest {
     }
 
     @Test
-    void 실패가_3회_누적되면_EXHAUSTED로_종착한다() {
-        ProcessingJob job = exhaustedJob();
+    void 실패는_횟수와_무관하게_FAILED로_남는다() {
+        ProcessingJob job = newJob();
+        for (int i = 0; i < 3; i++) {
+            job.start();
+            job.fail("실패", job.getAttemptCount());
+        }
 
-        assertThat(job.getStatus()).isEqualTo(JobStatus.EXHAUSTED);
-        assertThat(job.getAttemptCount()).isEqualTo(3);
+        assertThat(job.getStatus()).isEqualTo(JobStatus.FAILED);
     }
 
     @Test
-    void 수동_재시도는_FAILED를_PENDING으로_되돌리고_시각과_사유를_비운다() {
+    void 소진_처리는_FAILED를_EXHAUSTED로_전이한다() {
         ProcessingJob job = failedJob();
+
+        job.exhaust();
+
+        assertThat(job.getStatus()).isEqualTo(JobStatus.EXHAUSTED);
+    }
+
+    @Test
+    void FAILED가_아니면_소진_처리할_수_없다() {
+        ProcessingJob job = newJob();
+        job.start();
+
+        assertThatThrownBy(job::exhaust)
+                .isInstanceOf(InvalidJobTransitionException.class);
+    }
+
+    @Test
+    void 수동_재시도는_EXHAUSTED를_PENDING으로_되돌리고_시각과_사유를_비운다() {
+        ProcessingJob job = exhaustedJob();
 
         job.resetForManualRetry();
 
@@ -139,12 +160,9 @@ class ProcessingJobTest {
     }
 
     @Test
-    void 수동_재시도는_EXHAUSTED를_PENDING으로_되돌린다() {
-        ProcessingJob job = exhaustedJob();
-
-        job.resetForManualRetry();
-
-        assertThat(job.getStatus()).isEqualTo(JobStatus.PENDING);
+    void FAILED에서는_수동_재시도할_수_없다() { // Kafka 재시도가 진행 중인 상태
+        assertThatThrownBy(failedJob()::resetForManualRetry)
+                .isInstanceOf(InvalidJobTransitionException.class);
     }
 
     @Test
@@ -167,44 +185,18 @@ class ProcessingJobTest {
         ProcessingJob job = exhaustedJob();
 
         job.resetForManualRetry();
-        assertThat(job.getAttemptCount()).isEqualTo(3);
+        assertThat(job.getAttemptCount()).isEqualTo(1);
 
         job.start();
-        assertThat(job.getAttemptCount()).isEqualTo(4);
+        assertThat(job.getAttemptCount()).isEqualTo(2);
     }
 
     @Test
-    void 수동_재시도_후_다시_실패하면_즉시_EXHAUSTED다() { // 1회의 추가 기회인 수동 재시도
-        ProcessingJob job = exhaustedJob();
-        job.resetForManualRetry();
-        job.start();
-
-        job.fail("재실패", 4);
-
-        assertThat(job.getStatus()).isEqualTo(JobStatus.EXHAUSTED);
-    }
-
-    @Test
-    void isRetryable은_FAILED와_EXHAUSTED에서만_참이다() {
-        assertThat(failedJob().isRetryable()).isTrue();
+    void isRetryable은_EXHAUSTED에서만_참이다() {
         assertThat(exhaustedJob().isRetryable()).isTrue();
+        assertThat(failedJob().isRetryable()).isFalse();
         assertThat(newJob().isRetryable()).isFalse();
         assertThat(succeededJob().isRetryable()).isFalse();
-    }
-
-    @Test
-    void 좀비_판정_후_재실행되면_만료된_시도의_기록은_거부되고_현재_시도만_통과한다() {
-        ProcessingJob job = newJob();
-        job.start();                       // 워커 A의 시도 1
-        job.fail("실행 타임아웃 초과", 1);      // 폴러의 좀비 판정
-        job.start();                       // 재실행된 시도 2
-
-        assertThatThrownBy(() -> job.succeed(1)) // 워커 A의 뒤늦은 성공 보고
-                .isInstanceOf(StaleJobAttemptException.class);
-        assertThat(job.getStatus()).isEqualTo(JobStatus.RUNNING);
-
-        job.succeed(2);
-        assertThat(job.getStatus()).isEqualTo(JobStatus.SUCCEEDED);
     }
 
     private ProcessingJob newJob() {
@@ -226,11 +218,8 @@ class ProcessingJobTest {
     }
 
     private ProcessingJob exhaustedJob() {
-        ProcessingJob job = newJob();
-        for (int i = 0; i < 3; i++) {
-            job.start();
-            job.fail("실패", job.getAttemptCount());
-        }
+        ProcessingJob job = failedJob();
+        job.exhaust();
         return job;
     }
 }

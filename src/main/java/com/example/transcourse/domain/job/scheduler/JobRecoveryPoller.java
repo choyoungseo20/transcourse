@@ -17,31 +17,25 @@ public class JobRecoveryPoller {
 
     private final JobService jobService;
     private final JobEventPublisher publisher;
-    private final Duration runningTimeout;
     private final Duration pendingStaleAfter;
 
     public JobRecoveryPoller(
             JobService jobService,
             JobEventPublisher publisher,
-            @Value("${app.recovery.running-timeout}") Duration runningTimeout,
             @Value("${app.recovery.pending-stale-after}") Duration pendingStaleAfter) {
         this.jobService = jobService;
         this.publisher = publisher;
-        this.runningTimeout = runningTimeout;
         this.pendingStaleAfter = pendingStaleAfter;
     }
 
     @Scheduled(fixedDelayString = "${app.recovery.poll-interval}")
     public void recover() {
-        LocalDateTime now = LocalDateTime.now();
-
-        List<ProcessingJob> zombies = jobService.failTimedOut(now.minus(runningTimeout));
-        List<ProcessingJob> targets = jobService.findRecoverable(now.minus(pendingStaleAfter));
-        if (zombies.isEmpty() && targets.isEmpty()) {
+        List<ProcessingJob> targets = jobService.findRecoverable(LocalDateTime.now().minus(pendingStaleAfter));
+        if (targets.isEmpty()) {
             return;
         }
 
-        log.info("방치된 job 복구: RUNNING 좀비 {}건 실패 처리, {}건 재발행", zombies.size(), targets.size());
+        log.info("방치된 job 재발행: {}건", targets.size());
         targets.forEach(publisher::publishRetry);
     }
 }

@@ -13,14 +13,14 @@ for i in $(seq 1 $N); do
 done
 # 4개 이상 파티션에서 TRANSCODING이 진행 중일 때까지 대기
 while true; do
-  BUSY=$($Q "select count(distinct e.partition_no) from worker_execution e join processing_job j on j.id=e.job_id where e.finished_at is null and j.type='TRANSCODING' and e.received_at>='$T0'" | tail -1)
+  BUSY=$($Q "select count(distinct e.partition_no) from worker_execution e join processing_job j on j.id=e.job_id where e.topic='video.jobs' and e.finished_at is null and j.type='TRANSCODING' and e.received_at>='$T0'" | tail -1)
   echo "$(date +%T) busy transcoding partitions=$BUSY"
   [ "$BUSY" -ge 4 ] && break
   sleep 3
 done
 TS=$($Q "select now(6)" | tail -1)
 echo "[$LABEL] scale-up at $TS"
-docker compose -f docker-compose.yaml -f $S/override.yaml --profile scale up -d --scale worker=3 --no-recreate worker 2>&1 | grep -E "Started|Created" || true
+docker compose --profile scale up -d --scale worker=3 --no-recreate worker 2>&1 | grep -E "Started|Created" || true
 # 모든 job 종료 대기
 while true; do
   LEFT=$($Q "select count(*) from processing_job where video_id>=$FIRST and status in ('PENDING','RUNNING')" | tail -1)

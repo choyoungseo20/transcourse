@@ -22,10 +22,5 @@ public interface ProcessingJobRepository extends JpaRepository<ProcessingJob, Lo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<ProcessingJob> findWithLockByVideoIdAndType(Long videoId, JobType type);
 
-    List<ProcessingJob> findByStatus(JobStatus status);
-
     List<ProcessingJob> findByStatusAndCreatedAtBefore(JobStatus status, LocalDateTime threshold);
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    List<ProcessingJob> findWithLockByStatusAndStartedAtBefore(JobStatus status, LocalDateTime threshold);
 }

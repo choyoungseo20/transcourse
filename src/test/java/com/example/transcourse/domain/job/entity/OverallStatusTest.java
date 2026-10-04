@@ -58,11 +58,8 @@ class OverallStatusTest {
     }
 
     private ProcessingJob exhausted() {
-        ProcessingJob job = pending();
-        for (int i = 0; i < 3; i++) {
-            job.start();
-            job.fail("실패", job.getAttemptCount());
-        }
+        ProcessingJob job = failed();
+        job.exhaust();
         return job;
     }
 }

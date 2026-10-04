@@ -9,7 +9,7 @@
 - 컨슈머 3대(app 1 + worker 2), 파티션 6개, 480초 720p 노이즈 영상 12건 업로드
 - 트랜스코딩이 4개 파티션 이상에서 진행 중일 때 worker 1대 증설
 - 설정당 4회 반복
-- 진행 중 인코딩의 좀비 판정 방지를 위한 `running-timeout` 30m 상향 (`override.yaml`)
+- 진행 중 인코딩의 좀비 판정 방지를 위한 `running-timeout` 30m 상향
 
 ## 결과
 
@@ -30,7 +30,7 @@
 ## 재현
 
 ```bash
-docker compose -f docker-compose.yaml -f docs/experiments/kafka-rebalance/override.yaml --profile scale up -d --scale worker=2
+docker compose --profile scale up -d --scale worker=2
 VIDEO=/path/to/noisy.mp4 docs/experiments/kafka-rebalance/driver.sh      # 설정별 4회
 python3 docs/experiments/kafka-rebalance/aggregate.py                     # results/runs.txt 기준 집계
 ```

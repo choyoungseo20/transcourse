@@ -19,8 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class JobService {
 
-    private static final String TIMED_OUT_FAILURE_REASON = "실행 타임아웃 초과에 따른 유실 판정";
-
     private final ProcessingJobRepository jobRepository;
 
     @Transactional(readOnly = true)
@@ -69,13 +67,9 @@ public class JobService {
         return job;
     }
 
-    // 폴러 전용
     @Transactional
-    public List<ProcessingJob> failTimedOut(LocalDateTime startedBefore) {
-        List<ProcessingJob> zombies =
-                jobRepository.findWithLockByStatusAndStartedAtBefore(JobStatus.RUNNING, startedBefore);
-        zombies.forEach(job -> job.fail(TIMED_OUT_FAILURE_REASON, job.getAttemptCount()));
-        return zombies;
+    public void markExhausted(Long videoId, JobType type) {
+        findJob(videoId, type).exhaust();
     }
 
     // 폴러 전용
@@ -83,8 +77,12 @@ public class JobService {
     public List<ProcessingJob> findRecoverable(LocalDateTime pendingCreatedBefore) {
         List<ProcessingJob> recoverable =
                 jobRepository.findByStatusAndCreatedAtBefore(JobStatus.PENDING, pendingCreatedBefore);
-        recoverable.addAll(jobRepository.findByStatus(JobStatus.FAILED));
         return recoverable;
+    }
+
+    private ProcessingJob findJob(Long videoId, JobType type) {
+        return jobRepository.findWithLockByVideoIdAndType(videoId, type)
+                .orElseThrow(() -> new JobNotFoundException(videoId, type));
     }
 
     private ProcessingJob findJob(Long jobId) {

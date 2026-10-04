@@ -44,11 +44,12 @@ app:
     jobs-topic: video.jobs
     jobs-partitions: 6
     transcoding-threads: 6
+    job-attempts: 3
+    retry-delay-ms: 5000
   recovery:
     poll-interval: 60s
     # 정상적인 토픽 대기를 유실로 오판하지 않을 만큼 긴 기준
     pending-stale-after: 10m
-    running-timeout: 300s
   storage:
     endpoint: ${APP_STORAGE_ENDPOINT:http://localhost:9000}
     presign-endpoint: ${APP_STORAGE_PRESIGN_ENDPOINT:}

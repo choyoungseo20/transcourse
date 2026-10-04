@@ -3,10 +3,12 @@ package com.example.transcourse.domain.job.messaging;
 import com.example.transcourse.domain.job.entity.JobExecutionResult;
 import com.example.transcourse.domain.job.entity.JobType;
 import com.example.transcourse.domain.job.entity.ProcessingJob;
+import com.example.transcourse.domain.job.exception.InvalidJobTransitionException;
 import com.example.transcourse.domain.job.exception.JobNotFoundException;
 import com.example.transcourse.domain.job.experiment.WorkerExecutionRecorder;
 import com.example.transcourse.domain.job.service.JobService;
 import com.example.transcourse.domain.job.service.JobWorker;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -14,10 +16,13 @@ import org.apache.kafka.clients.consumer.ConsumerGroupMetadata;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.kafka.annotation.BackOff;
+import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
-import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.kafka.retrytopic.TopicSuffixingStrategy;
 import org.springframework.stereotype.Component;
 
 // max.poll.interval.ms를 넘기는 인코딩의 워커 스레드 실행
@@ -27,8 +32,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class TranscodingJobConsumer {
-
-    static final String LISTENER_ID = "job-transcoding";
 
     private final JobService jobService;
     private final JobWorker jobWorker;
@@ -49,14 +52,22 @@ public class TranscodingJobConsumer {
         this.transcodingExecutor = transcodingExecutor;
     }
 
+    @RetryableTopic(
+            attempts = "${app.kafka.job-attempts}",
+            backOff = @BackOff(delayString = "${app.kafka.retry-delay-ms}", multiplier = 2),
+            retryTopicSuffix = "-transcoding-retry",
+            dltTopicSuffix = "-transcoding-dlt",
+            topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE,
+            numPartitions = "${app.kafka.jobs-partitions}",
+            replicationFactor = "1",
+            listenerContainerFactory = "transcodingContainerFactory")
     @KafkaListener(
-            id = LISTENER_ID,
+            id = "job-transcoding",
             topics = "${app.kafka.jobs-topic}",
             containerFactory = "transcodingContainerFactory")
-    public void onTranscodingRequested(ConsumerRecord<String, String> record, Acknowledgment ack, Consumer<?, ?> consumer) {
+    public CompletableFuture<Void> onTranscodingRequested(ConsumerRecord<String, String> record, Consumer<?, ?> consumer) {
         if (!JobRequest.targets(record, JobType.TRANSCODING)) {
-            ack.acknowledge();
-            return;
+            return CompletableFuture.completedFuture(null);
         }
         Long videoId = JobRequest.videoId(record);
         ProcessingJob job;
@@ -64,22 +75,42 @@ public class TranscodingJobConsumer {
             job = jobService.getJob(videoId, JobType.TRANSCODING);
         } catch (JobNotFoundException e) {
             log.warn("존재하지 않는 job의 실행 요청을 버림: videoId={}, type={}", videoId, JobType.TRANSCODING);
-            ack.acknowledge();
-            return;
+            return CompletableFuture.completedFuture(null);
         }
         TopicPartition partition = new TopicPartition(record.topic(), record.partition());
         ConsumerGroupMetadata group = consumer.groupMetadata();
         Long executionId = recorder.received(record, job.getId(), group.memberId(), group.generationId());
 
-        container().pausePartition(partition);
+        MessageListenerContainer container = containerOf(partition);
+        container.pausePartition(partition);
+        CompletableFuture<Void> done = new CompletableFuture<>();
         transcodingExecutor.execute(() -> {
             try {
-                recorder.finished(executionId, run(job));
+                JobExecutionResult result = run(job);
+                recorder.finished(executionId, result);
+                if (result == JobExecutionResult.FAILED) {
+                    done.completeExceptionally(new TranscodingFailedException(job.getId()));
+                } else {
+                    done.complete(null);
+                }
+            } catch (RuntimeException e) {
+                done.completeExceptionally(e);
             } finally {
-                ack.acknowledge();
-                container().resumePartition(partition);
+                container.resumePartition(partition);
             }
         });
+        return done;
+    }
+
+    @DltHandler
+    public void onExhausted(ConsumerRecord<String, String> record) {
+        Long videoId = JobRequest.videoId(record);
+        log.warn("재시도 소진: videoId={}, type={}", videoId, JobType.TRANSCODING);
+        try {
+            jobService.markExhausted(videoId, JobType.TRANSCODING);
+        } catch (JobNotFoundException | InvalidJobTransitionException e) {
+            log.warn("소진 처리 생략: videoId={}, 사유={}", videoId, e.getMessage());
+        }
     }
 
     private JobExecutionResult run(ProcessingJob job) {
@@ -91,7 +122,17 @@ public class TranscodingJobConsumer {
         }
     }
 
-    private MessageListenerContainer container() {
-        return registry.getListenerContainer(LISTENER_ID);
+    // 재시도 토픽마다 따로 있는 컨테이너 중 파티션 보유 컨테이너 탐색
+    private MessageListenerContainer containerOf(TopicPartition partition) {
+        return registry.getAllListenerContainers().stream()
+                .filter(c -> c.getAssignedPartitions() != null && c.getAssignedPartitions().contains(partition))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("파티션을 가진 컨테이너 없음: " + partition));
+    }
+
+    static class TranscodingFailedException extends RuntimeException {
+        TranscodingFailedException(Long jobId) {
+            super("트랜스코딩 실패: jobId=" + jobId);
+        }
     }
 }
