@@ -8,14 +8,11 @@ def q(sql):
 rows=[]
 for line in open(f'{S}/runs.txt'):
     label,t0,ts,te,first=line.strip().split('|')
-    # 리밸런스: 증설 전 소유자와 후 소유자를 비교해 이동 파티션 계산
+    # 증설 전후의 소유자 비교로 이동 파티션 계산
     before={}
     for mem,parts in q(f"select member_id,partitions from rebalance_event where type='ASSIGNED' and occurred_at<'{ts}' order by id"):
         for p in parts.split(','):
             if p: before[p]=mem
-    # 증설 전 소유자 목록은 마지막 assign 기준으로 덮어쓰기 되므로 revoke도 반영
-    for mem,parts in q(f"select member_id,partitions from rebalance_event where type='REVOKED' and occurred_at<'{ts}' order by id"):
-        pass
     ev=q(f"select type,member_id,partitions from rebalance_event where occurred_at between '{ts}' and date_add('{ts}', interval 90 second) order by id")
     revoked=set(); after=dict(before)
     for typ,mem,parts in ev:

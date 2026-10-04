@@ -14,7 +14,7 @@ restart_consumers() {
   done
   eval "$KT --state" 2>/dev/null | tail -1
 }
-for round in 2 3 4; do
+for round in 1 2 3 4; do
   for strat in range cooperative; do
     if [ $strat = range ]; then cls=org.apache.kafka.clients.consumer.RangeAssignor; else cls=org.apache.kafka.clients.consumer.CooperativeStickyAssignor; fi
     echo "=== $strat-$round restart"

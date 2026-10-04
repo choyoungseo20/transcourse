@@ -3,7 +3,7 @@
 set -e
 S=$(cd "$(dirname "$0")" && pwd)
 cd "$S/../../.."
-LABEL=$1; N=${2:-18}
+LABEL=$1; N=${2:-12}
 Q=$S/q.sh
 T0=$($Q "select now(6)" | tail -1)
 FIRST=$($Q "select coalesce(max(id),0)+1 from video" | tail -1)
@@ -11,7 +11,7 @@ echo "[$LABEL] t0=$T0 first_video_id=$FIRST"
 for i in $(seq 1 $N); do
   curl -s -o /dev/null -w "upload $i http=%{http_code}\n" -F "file=@${VIDEO:?VIDEO=<테스트 영상 경로>}" http://localhost:8080/videos
 done
-# 6개 파티션 모두 TRANSCODING을 진행 중일 때까지 대기
+# 4개 이상 파티션에서 TRANSCODING이 진행 중일 때까지 대기
 while true; do
   BUSY=$($Q "select count(distinct e.partition_no) from worker_execution e join processing_job j on j.id=e.job_id where e.finished_at is null and j.type='TRANSCODING' and e.received_at>='$T0'" | tail -1)
   echo "$(date +%T) busy transcoding partitions=$BUSY"
