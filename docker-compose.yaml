@@ -17,6 +17,8 @@ services:
       APP_STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       KAFKA_ASSIGNMENT_STRATEGY: ${KAFKA_ASSIGNMENT_STRATEGY:-org.apache.kafka.clients.consumer.RangeAssignor}
+      # 인스턴스마다 인코딩이 동시에 도는 환경의 VM 메모리 부족 방지를 위한 힙 상한
+      JAVA_TOOL_OPTIONS: -Xmx512m
     depends_on:
       mysql:
         condition: service_healthy
@@ -40,6 +42,8 @@ services:
       APP_STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       KAFKA_ASSIGNMENT_STRATEGY: ${KAFKA_ASSIGNMENT_STRATEGY:-org.apache.kafka.clients.consumer.RangeAssignor}
+      # 인스턴스마다 인코딩이 동시에 도는 환경의 VM 메모리 부족 방지를 위한 힙 상한
+      JAVA_TOOL_OPTIONS: -Xmx512m
     profiles: [scale]
     depends_on:
       mysql:

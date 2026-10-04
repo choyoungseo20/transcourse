@@ -11,11 +11,17 @@ echo "[$LABEL] t0=$T0 first_video_id=$FIRST"
 for i in $(seq 1 $N); do
   curl -s -o /dev/null -w "upload $i http=%{http_code}\n" -F "file=@${VIDEO:?VIDEO=<테스트 영상 경로>}" http://localhost:8080/videos
 done
-# 4개 이상 파티션에서 TRANSCODING이 진행 중일 때까지 대기
+# 3개 이상 파티션에서 TRANSCODING이 진행 중일 때까지 대기
+# 영상 ID 키의 해시가 몰려 기준에 닿지 못한 채 끝난 회차는 기록 없이 종료
 while true; do
   BUSY=$($Q "select count(distinct e.partition_no) from worker_execution e join processing_job j on j.id=e.job_id where e.topic='video.jobs' and e.finished_at is null and j.type='TRANSCODING' and e.received_at>='$T0'" | tail -1)
   echo "$(date +%T) busy transcoding partitions=$BUSY"
-  [ "$BUSY" -ge 4 ] && break
+  [ "$BUSY" -ge 3 ] && break
+  LEFT=$($Q "select count(*) from processing_job where video_id>=$FIRST and type='TRANSCODING' and status in ('PENDING','RUNNING')" | tail -1)
+  if [ "$LEFT" = "0" ]; then
+    echo "[$LABEL] skipped: 증설 기준 미도달"
+    exit 1
+  fi
   sleep 3
 done
 TS=$($Q "select now(6)" | tail -1)
