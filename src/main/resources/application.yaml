@@ -16,7 +16,8 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       properties:
         "[group.protocol]": classic
-        "[partition.assignment.strategy]": ${KAFKA_ASSIGNMENT_STRATEGY:org.apache.kafka.clients.consumer.RangeAssignor}
+        # 증설 시 옮길 파티션만 회수해 진행 중 인코딩의 재실행을 줄이는 할당 전략 (docs/experiments/kafka-rebalance)
+        "[partition.assignment.strategy]": ${KAFKA_ASSIGNMENT_STRATEGY:org.apache.kafka.clients.consumer.CooperativeStickyAssignor}
   servlet:
     multipart:
       max-file-size: 1GB
