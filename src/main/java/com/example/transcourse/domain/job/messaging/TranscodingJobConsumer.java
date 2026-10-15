@@ -18,6 +18,7 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerGroupMetadata;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Header;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -147,20 +148,31 @@ public class TranscodingJobConsumer {
         }
     }
 
+    // 실패 처리 완료 전의 ack는 위치 단위 커밋으로 실패 레코드를 건너뛰므로, 파티션을 멈춘 채 완료까지 반복
     private void handleFailure(Long videoId, int attempt) throws InterruptedException {
         if (attempt < maxAttempts) {
             forwardToRetry(videoId, attempt + 1);
             return;
         }
         log.warn("재시도 소진: videoId={}, type={}", videoId, JobType.TRANSCODING);
-        try {
-            jobService.markExhausted(videoId, JobType.TRANSCODING);
-        } catch (JobNotFoundException | InvalidJobTransitionException e) {
-            log.warn("소진 처리 생략: videoId={}, 사유={}", videoId, e.getMessage());
+        recordExhaustion(videoId);
+    }
+
+    private void recordExhaustion(Long videoId) throws InterruptedException {
+        while (true) {
+            try {
+                jobService.markExhausted(videoId, JobType.TRANSCODING);
+                return;
+            } catch (JobNotFoundException | InvalidJobTransitionException e) {
+                log.warn("소진 처리 생략: videoId={}, 사유={}", videoId, e.getMessage());
+                return;
+            } catch (RuntimeException e) {
+                log.error("소진 기록 실패, 다시 시도: videoId={}", videoId, e);
+                Thread.sleep(1_000);
+            }
         }
     }
 
-    // 발행 성공 전의 ack는 위치 단위 커밋으로 실패 레코드를 건너뛰므로, 파티션을 멈춘 채 발행 성공까지 반복
     private void forwardToRetry(Long videoId, int nextAttempt) throws InterruptedException {
         long delay = retryDelayMs << (nextAttempt - 2);
         String value = String.valueOf(videoId);
@@ -171,7 +183,7 @@ public class TranscodingJobConsumer {
             try {
                 kafkaTemplate.send(retry).get(10, TimeUnit.SECONDS);
                 return;
-            } catch (ExecutionException | TimeoutException e) {
+            } catch (ExecutionException | TimeoutException | KafkaException e) {
                 log.error("재시도 토픽 발행 실패, 다시 시도: videoId={}", videoId, e);
                 Thread.sleep(1_000);
             }
