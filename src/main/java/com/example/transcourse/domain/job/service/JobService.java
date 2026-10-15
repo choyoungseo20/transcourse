@@ -1,0 +1,92 @@
+package com.example.transcourse.domain.job.service;
+
+import com.example.transcourse.domain.job.entity.JobStatus;
+import com.example.transcourse.domain.job.entity.JobType;
+import com.example.transcourse.domain.job.entity.ProcessingJob;
+import com.example.transcourse.domain.job.exception.JobNotFoundException;
+import com.example.transcourse.domain.job.exception.JobNotRetryableException;
+import com.example.transcourse.domain.job.repository.ProcessingJobRepository;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+// 처리 도중의 상태 조회를 위한 상태 전이별 짧은 트랜잭션 커밋
+@Service
+@RequiredArgsConstructor
+public class JobService {
+
+    private final ProcessingJobRepository jobRepository;
+
+    @Transactional(readOnly = true)
+    public List<ProcessingJob> findAllFor(Long videoId) {
+        return jobRepository.findByVideoId(videoId);
+    }
+
+    @Transactional(readOnly = true)
+    public ProcessingJob getJob(Long videoId, JobType type) {
+        return jobRepository.findByVideoIdAndType(videoId, type)
+                .orElseThrow(() -> new JobNotFoundException(videoId, type));
+    }
+
+    @Transactional
+    public void createAllFor(Long videoId) {
+        Arrays.stream(JobType.values())
+                .map(type -> ProcessingJob.create(videoId, type))
+                .forEach(jobRepository::save);
+    }
+
+    @Transactional
+    public int markStarted(Long jobId) {
+        ProcessingJob job = findJob(jobId);
+        job.start();
+        return job.getAttemptCount();
+    }
+
+    @Transactional
+    public void markSucceeded(Long jobId, int attempt) {
+        findJob(jobId).succeed(attempt);
+    }
+
+    @Transactional
+    public void markFailed(Long jobId, String reason, int attempt) {
+        findJob(jobId).fail(reason, attempt);
+    }
+
+    @Transactional
+    public ProcessingJob resetForRetry(Long videoId, JobType type) {
+        ProcessingJob job = jobRepository.findWithLockByVideoIdAndType(videoId, type)
+                .orElseThrow(() -> new JobNotFoundException(videoId, type));
+        if (!job.isRetryable()) {
+            throw new JobNotRetryableException(job.getId(), job.getStatus());
+        }
+        job.resetForManualRetry();
+        return job;
+    }
+
+    @Transactional
+    public void markExhausted(Long videoId, JobType type) {
+        findJob(videoId, type).exhaust();
+    }
+
+    // 폴러 전용
+    @Transactional(readOnly = true)
+    public List<ProcessingJob> findRecoverable(LocalDateTime pendingCreatedBefore) {
+        List<ProcessingJob> recoverable =
+                jobRepository.findByStatusAndCreatedAtBefore(JobStatus.PENDING, pendingCreatedBefore);
+        return recoverable;
+    }
+
+    private ProcessingJob findJob(Long videoId, JobType type) {
+        return jobRepository.findWithLockByVideoIdAndType(videoId, type)
+                .orElseThrow(() -> new JobNotFoundException(videoId, type));
+    }
+
+    private ProcessingJob findJob(Long jobId) {
+        return jobRepository.findWithLockById(jobId)
+                .orElseThrow(() -> new JobNotFoundException(jobId));
+    }
+}
