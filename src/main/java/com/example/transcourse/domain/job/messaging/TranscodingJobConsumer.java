@@ -113,10 +113,10 @@ public class TranscodingJobConsumer {
             try {
                 waitUntil(retryAt);
                 JobExecutionResult result = run(job);
-                recorder.finished(executionId, result);
                 if (result == JobExecutionResult.FAILED) {
                     handleFailure(videoId, attempt);
                 }
+                recordFinished(executionId, result);
                 ack.acknowledge();
             } catch (InterruptedException e) {
                 // 종료 중의 중단은 ack하지 않아 재전달 대상으로 남김
@@ -136,6 +136,14 @@ public class TranscodingJobConsumer {
         } catch (RuntimeException e) {
             log.error("job 실행 중 예상 밖 예외: jobId={}", job.getId(), e);
             return JobExecutionResult.FAILED;
+        }
+    }
+
+    private void recordFinished(Long executionId, JobExecutionResult result) {
+        try {
+            recorder.finished(executionId, result);
+        } catch (RuntimeException e) {
+            log.warn("실행 이력 기록 실패: executionId={}", executionId, e);
         }
     }
 
