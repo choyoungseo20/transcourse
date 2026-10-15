@@ -1,6 +1,6 @@
 # TransCourse
 
-> 영상 업로드 이후 필요한 후처리 작업을 안정적으로 수행하는 시스템
+> 강의 영상 업로드 이후 필요한 후처리 작업을 안정적으로 수행하는 시스템
 
 ---
 
@@ -8,15 +8,15 @@
 
 ### Background
 
-학원용 LMS를 설계하면서 강의 영상 업로드 이후 다음과 같은 후처리 기능이 필요했습니다.
+강의 영상을 올리는 서비스는 업로드 이후 여러 후처리를 거칩니다.
 
 * 영상 썸네일 생성
 * 영상 길이, 해상도, Codec 등의 메타데이터 추출
 * 스트리밍을 위한 영상 트랜스코딩
 
-각 후처리 작업은 처리 시간과 실패 가능성이 다르며, 하나의 영상에 대해 여러 작업이 독립적으로 수행되어야 합니다.
+썸네일과 메타데이터는 2초 안에 끝나지만, 트랜스코딩은 4분 길이 영상 기준으로 30초에서 4분 넘게 걸립니다. 실패 가능성도 작업마다 다르며, 하나의 영상에 대해 여러 작업이 독립적으로 수행되어야 합니다.
 
-따라서 영상 업로드와 여러 후처리 작업을 어떤 구조로 연결하고 처리하는 것이 적절한지 직접 구현하며 검토하고자 이 프로젝트를 시작했습니다.
+여러 인스턴스가 이 작업들을 나눠 처리할 때 업로드와 후처리를 어떤 구조로 연결해야 하는지 직접 구현하며 검토하고자 이 프로젝트를 시작했습니다.
 
 ### Goal
 
@@ -31,56 +31,157 @@
 
 ---
 
-## 2. 핵심 기능
+## 2. 구조
 
-### 영상 업로드
+```mermaid
+flowchart LR
+    client([클라이언트]) -->|업로드| api[API 서버]
+    api -->|원본 저장| storage[(MinIO)]
+    api -->|영상과 작업 3건 저장| db[(MySQL)]
+    api -->|커밋 후 영상 ID 발행| jobs[[작업 토픽]]
 
-* 영상 원본 저장
-* 영상 처리 상태 관리
+    jobs --> transcoding[트랜스코딩 그룹]
+    jobs --> thumbnail[썸네일 그룹]
+    jobs --> metadata[메타데이터 그룹]
 
-### 썸네일 생성
+    transcoding -->|실패| retry[[트랜스코딩 재시도 토픽]]
+    retry --> transcodingRetry[트랜스코딩 재시도 그룹]
 
-* 영상의 대표 이미지 생성
+    poller[복구 폴러] -->|발행 유실 작업 재발행| jobs
+```
 
-### 메타데이터 추출
-
-* 영상 길이 추출
-* 해상도 추출
-* Codec 정보 추출
-
-### 트랜스코딩
-
-* 스트리밍에 적합한 영상 포맷으로 변환
-* 트랜스코딩 처리 상태 관리
-
-### 실패 작업 재처리
-
-* 후처리 작업별 성공 / 실패 상태 관리
-* 실패한 후처리 작업 재실행
+* 업로드 한 번에 영상 ID 한 건 발행
+* 처리 유형마다 독립된 컨슈머 그룹과 오프셋
+* 재시도 레코드는 헤더에 대상 유형을 담아 해당 유형의 그룹만 처리
 
 ---
 
-## 3. 기술 스택
+## 3. 기능 목록
+
+### 영상 업로드
+
+* 원본을 MinIO에 저장하고 영상과 유형별 작업 3건을 한 트랜잭션으로 저장
+* 커밋 이후 작업 토픽에 영상 ID 발행
+* 예외: 빈 파일 업로드 시 400
+* 예외: DB 저장 실패 시 저장한 원본 삭제
+* 예외: 발행 실패 시 작업은 대기 상태로 남고 복구 폴러가 재발행
+
+### 썸네일 생성, 메타데이터 추출
+
+* 썸네일 이미지 생성과 저장
+* 영상 길이, 해상도, 코덱 추출
+* 예외: 실패 시 같은 레코드를 지수 백오프로 최대 3회 실행
+* 예외: 3회 모두 실패 시 재시도 소진 상태
+
+### 트랜스코딩
+
+* 720p 단일 렌디션의 HLS 변환과 저장
+* 예외: 실패 시 재시도 토픽으로 전달하고 예정 시각까지 대기 후 실행
+* 예외: 3회 모두 실패 시 재시도 소진 상태
+* 예외: 리밸런싱으로 재전달된 레코드는 새 시도로 처리하고 이전 시도의 완료 기록 거부
+
+### 상태 조회와 산출물 접근
+
+* 영상별 전체 상태와 작업별 상태 조회
+* 썸네일 presigned URL 발급
+* 세그먼트 URL을 서명한 HLS 플레이리스트 제공
+* 예외: 산출물이 준비되지 않은 경우 409
+
+### 수동 재시도
+
+* 작업 단위 재시도 API
+* 예외: 재시도 소진 상태가 아닌 작업의 재시도 요청 시 409
+
+---
+
+## 4. 설계 결정
+
+### 장시간 트랜스코딩의 소비 방식
+
+인코딩 시간이 `max.poll.interval.ms`를 넘기므로 리스너 스레드에서 직접 실행할 수 없습니다.
+
+* 레코드를 한 건씩 받아 해당 파티션을 pause하고 별도 워커 스레드에서 실행
+* 완료 후 수동 ack와 resume
+* pause와 resume은 워커 스레드에서도 호출할 수 있는 리스너 컨테이너의 API로 요청
+* 동시 실행 수의 상한은 할당받은 파티션 수
+
+### 재전달과 시도 번호
+
+at-least-once 소비에서는 같은 작업이 두 번 실행될 수 있습니다.
+
+* 실행 중인 작업의 레코드가 재전달되면 새 시도로 처리하고 시도 번호 증가
+* 먼저 돌던 시도의 완료 기록은 시도 번호 불일치로 거부
+* 산출물 저장 경로는 원본 경로에서 결정적으로 정해져 재실행 시 같은 위치에 덮어쓰기
+
+시도 번호는 완료 기록만 막습니다. 먼저 돌던 시도의 인코딩은 중단되지 않습니다.
+
+### 재시도
+
+* 썸네일과 메타데이터: `DefaultErrorHandler`의 같은 자리 지수 백오프
+* 트랜스코딩: 워커 스레드가 재시도 토픽에 발행한 뒤 원본 레코드 ack
+* 재시도 횟수는 Kafka 쪽에서 관리하고, DB에는 실패와 재시도 소진 상태만 기록
+
+### 폐기한 대안
+
+| 대안 | 폐기 이유 |
+|---|---|
+| 폴러의 실행 시간 초과 판정 | 300초를 넘는 정상 인코딩을 멈춘 작업으로 오판 |
+| `CompletableFuture`를 반환하는 비동기 리스너 | ack 대기 동안 컨슈머 전체가 pause되어 파티션별 동시 처리 소실, Cooperative 리밸런싱 뒤 남은 파티션 미재개 |
+
+---
+
+## 5. 리밸런싱 비용 실험
+
+트랜스코딩 그룹의 컨슈머 3대, 파티션 6개에서 인코딩 도중 1대를 증설했습니다. 할당 전략별로 4회씩 측정한 평균입니다.
+
+| 항목 | Range | Sticky | CooperativeSticky |
+|---|---|---|---|
+| revoke 파티션 | 6 | 6 | 1 |
+| 이동 파티션 | 2 (회차별 5, 1, 1, 1) | 1 | 1 |
+| 폐기된 인코딩 비율 | 16.2% (최대 35.7%) | 11.2% (최대 11.8%) | 11.3% (최대 11.8%) |
+| 유지 파티션의 재전달 | 3.5 | 4.5 | 0 |
+
+* 중복 인코딩은 소유권이 이동한 파티션에서만 발생
+* 유지 파티션의 재전달은 진행 중 작업이 끝난 뒤 도착해 실행 없이 종료
+* Range의 이동 수는 신규 멤버 ID의 정렬 위치에 따라 변동
+* Sticky와 CooperativeSticky의 비용은 동일
+
+기본 할당 전략은 `CooperativeStickyAssignor`입니다. 선택 근거는 비용 차이가 아닙니다. 유지 파티션을 revoke하지 않아 리스너 컨테이너의 pause 재적용에 기대지 않는다는 점입니다.
+
+조건, 재현 절차, 회차별 값은 [실험 문서](docs/experiments/kafka-rebalance/README.md)에 있습니다.
+
+---
+
+## 6. 알려진 한계
+
+* 복구 폴러가 토픽에서 대기 중인 작업까지 재발행하는 중복 ([#30](https://github.com/choyoungseo20/transcourse/issues/30))
+* 실험용 기록 코드의 상시 동작과 리밸런싱 콜백 안의 DB 쓰기
+* 컨슈머는 살아 있고 ffmpeg만 멈춘 경우의 대비 부재
+
+---
+
+## 7. 기술 스택
 
 * Java 21, Spring Boot 4.1.1
 * Spring Data JPA, MySQL 8.4
 * Spring for Apache Kafka, Kafka 4.0 (KRaft)
+* MinIO (S3 호환 스토리지), FFmpeg
 * springdoc-openapi (Swagger UI)
-* Docker, Docker Compose
+* Docker, Docker Compose, GitHub Actions
 
 ---
 
-## 4. 실행 방법
+## 8. 실행 방법
 
 ### 사전 준비
 
 ```bash
-cp .env.example .env   # DB 계정 정보를 원하는 값으로 수정
+cp .env.example .env   # DB와 MinIO 계정 정보를 원하는 값으로 수정
 ```
 
 ### Docker Compose로 전체 실행
 
-앱과 MySQL을 한 번에 띄웁니다.
+앱, MySQL, MinIO, Kafka를 한 번에 띄웁니다.
 
 ```bash
 docker compose up --build -d
@@ -88,6 +189,7 @@ docker compose up --build -d
 
 * API 서버: http://localhost:8080
 * Swagger UI: http://localhost:8080/swagger-ui/index.html
+* 데모 페이지: http://localhost:8080
 
 종료:
 
@@ -95,16 +197,16 @@ docker compose up --build -d
 docker compose down
 ```
 
-### 컨슈머 증설 실험
+### 컨슈머 증설
 
-`worker` 서비스는 포트를 열지 않는 컨슈머 인스턴스입니다. 인코딩 중에 대수를 늘리면 `job-transcoding` 그룹에서 리밸런싱이 일어나고, 그 결과는 `rebalance_event`·`worker_execution` 테이블에 남습니다.
+`worker` 서비스는 포트를 열지 않는 컨슈머 인스턴스입니다.
 
 ```bash
 docker compose --profile scale up -d --scale worker=3
 docker compose --profile scale up -d --scale worker=4 --no-recreate worker   # 인코딩 중 1대 증설
 ```
 
-할당 전략은 `KAFKA_ASSIGNMENT_STRATEGY`로 바꿉니다. 기본값은 `CooperativeStickyAssignor`입니다. 선택 근거는 [리밸런싱 비용 실험](docs/experiments/kafka-rebalance/README.md)에 있습니다.
+할당 전략은 `KAFKA_ASSIGNMENT_STRATEGY`로 바꿉니다.
 
 ```bash
 KAFKA_ASSIGNMENT_STRATEGY=org.apache.kafka.clients.consumer.RangeAssignor docker compose --profile scale up -d --scale worker=3
@@ -112,25 +214,31 @@ KAFKA_ASSIGNMENT_STRATEGY=org.apache.kafka.clients.consumer.RangeAssignor docker
 
 ### 로컬에서 앱만 실행
 
-MySQL, MinIO, Kafka만 Docker로 띄우고 앱은 로컬 `local` 프로파일로 실행합니다.
+MySQL, MinIO, Kafka만 Docker로 띄우고 앱은 `local` 프로파일로 실행합니다.
 
 ```bash
 docker compose up -d mysql minio kafka
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-로컬 실행(bootRun)과 테스트에는 FFmpeg가 필요합니다 (Docker 이미지에는 포함). FFmpeg 빈이 부팅 시 바이너리를 확인하므로, 없으면 앱이 뜨지 않습니다.
+로컬 실행과 테스트에는 FFmpeg가 필요합니다. FFmpeg 빈이 부팅 시 바이너리를 확인하므로, 없으면 앱이 뜨지 않습니다.
 
 ```bash
 brew install ffmpeg
 ```
 
----
-
-## 5. 프로파일
+### 프로파일
 
 | 프로파일 | 용도 |
 |---|---|
 | `local` | 로컬 개발 (localhost MySQL) |
 | `dev` | Docker Compose / 개발 서버 (환경변수로 접속 정보 주입) |
-| `prod` | 운영 (환경변수로 접속 정보 주입) |
+
+---
+
+## 9. 문서
+
+* [도메인 모델](docs/도메인모델.md)
+* [용어 사전](docs/용어사전.md)
+* [개발 가이드](docs/개발가이드.md)
+* [리밸런싱 비용 실험](docs/experiments/kafka-rebalance/README.md)
